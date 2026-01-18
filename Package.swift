@@ -15,8 +15,8 @@ let package = Package(
         .library(name: "Decimals", targets: ["Decimals"])
     ],
     dependencies: [
-        .package(url: "https://github.com/swift-standards/swift-ieee-754.git", from: "0.0.1"),
-        .package(url: "https://github.com/swift-primitives/swift-decimal-primitives.git", from: "0.0.1"),
+        .package(path: "../../swift-standards/swift-ieee-754"),
+        .package(path: "../../swift-primitives/swift-decimal-primitives"),
     ],
     targets: [
         .target(
