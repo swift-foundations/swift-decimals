@@ -30,7 +30,13 @@ let package = Package(
                 .enableUpcomingFeature("InternalImportsByDefault"),
                 .enableUpcomingFeature("MemberImportVisibility")
     ]
-        )
+        ),
+        .testTarget(
+            name: "Decimals Tests",
+            dependencies: [
+                "Decimals",
+            ]
+        ),
     ],
     swiftLanguageModes: [.v6]
 )
@@ -42,6 +48,7 @@ for target in package.targets where ![.system, .binary, .plugin, .macro].contain
         .enableUpcomingFeature("ExistentialAny"),
         .enableUpcomingFeature("InternalImportsByDefault"),
         .enableUpcomingFeature("MemberImportVisibility"),
+        .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
         .enableExperimentalFeature("Lifetimes"),
         .enableExperimentalFeature("SuppressedAssociatedTypes"),
         .enableExperimentalFeature("SuppressedAssociatedTypesWithDefaults"),
