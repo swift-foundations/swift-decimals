@@ -15,7 +15,7 @@ let package = Package(
         .library(name: "Decimals", targets: ["Decimals"])
     ],
     dependencies: [
-        .package(path: "../../swift-standards/swift-ieee-754"),
+        .package(path: "../../swift-ieee/swift-ieee-754"),
         .package(path: "../../swift-primitives/swift-decimal-primitives")
     ],
     targets: [
