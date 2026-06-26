@@ -16,14 +16,16 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/swift-ieee/swift-ieee-754.git", branch: "main"),
-        .package(url: "https://github.com/swift-primitives/swift-decimal-primitives.git", branch: "main")
+        .package(url: "https://github.com/swift-primitives/swift-decimal-primitives.git", branch: "main"),
+        .package(url: "https://github.com/swift-primitives/swift-ascii-serializer-primitives.git", branch: "main")
     ],
     targets: [
         .target(
             name: "Decimals",
             dependencies: [
                 .product(name: "IEEE 754", package: "swift-ieee-754"),
-                .product(name: "Decimal Primitives", package: "swift-decimal-primitives")
+                .product(name: "Decimal Primitives", package: "swift-decimal-primitives"),
+                .product(name: "ASCII Decimal Serializer Primitives", package: "swift-ascii-serializer-primitives")
             ],
             swiftSettings: [
                 .enableUpcomingFeature("ExistentialAny"),

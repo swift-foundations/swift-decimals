@@ -1,3 +1,5 @@
+internal import ASCII_Decimal_Serializer_Primitives
+
 // MARK: - Format64 Rendering
 
 extension Decimal.Text where Value == Decimal.Format64 {
@@ -43,14 +45,10 @@ extension Decimal.Text where Value == Decimal.Format64 {
         let coefficient = base.extractCoefficient()
         let exponent = base.extractExponent()
 
-        // Convert coefficient to digits
-        var digits: [UInt8] = []
-        var temp = coefficient
-        while temp > 0 {
-            digits.append(UInt8(ascii: "0") + UInt8(temp % 10))
-            temp /= 10
-        }
-        digits.reverse()
+        // Convert coefficient to digits (delegated to L1 ASCII decimal serializer)
+        var digitCodes: [ASCII.Code] = []
+        ASCII.Decimal.Serializer().serialize(coefficient, into: &digitCodes)
+        let digits: [UInt8] = digitCodes.map(\.underlying)
 
         let numDigits = digits.count
         let adjustedExponent = exponent.rawValue + numDigits - 1
@@ -231,14 +229,10 @@ extension Decimal.Text where Value == Decimal.Format32 {
         let coefficient = base.extractCoefficient()
         let exponent = base.extractExponent()
 
-        // Convert coefficient to digits
-        var digits: [UInt8] = []
-        var temp = coefficient
-        while temp > 0 {
-            digits.append(UInt8(ascii: "0") + UInt8(temp % 10))
-            temp /= 10
-        }
-        digits.reverse()
+        // Convert coefficient to digits (delegated to L1 ASCII decimal serializer)
+        var digitCodes: [ASCII.Code] = []
+        ASCII.Decimal.Serializer().serialize(coefficient, into: &digitCodes)
+        let digits: [UInt8] = digitCodes.map(\.underlying)
 
         let numDigits = digits.count
         let adjustedExponent = exponent.rawValue + numDigits - 1
@@ -412,14 +406,10 @@ extension Decimal.Text where Value == Decimal.Format128 {
         let coefficient = base.extractCoefficient()
         let exponent = base.extractExponent()
 
-        // Convert coefficient to digits
-        var digits: [UInt8] = []
-        var temp = coefficient
-        while temp > 0 {
-            digits.append(UInt8(ascii: "0") + UInt8(temp % 10))
-            temp /= 10
-        }
-        digits.reverse()
+        // Convert coefficient to digits (delegated to L1 ASCII decimal serializer)
+        var digitCodes: [ASCII.Code] = []
+        ASCII.Decimal.Serializer().serialize(coefficient, into: &digitCodes)
+        let digits: [UInt8] = digitCodes.map(\.underlying)
 
         let numDigits = digits.count
         let adjustedExponent = exponent.rawValue + numDigits - 1
