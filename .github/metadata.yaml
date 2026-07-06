@@ -1,6 +1,6 @@
 # .github/metadata.yaml
 # Triaged 2026-04-29 — anomaly-fix pass after wave-4 PR-branch triage didn't apply.
-description: "Decimals for Swift."
+description: "IEEE 754 decimal floating-point arithmetic with context-controlled rounding and per-operation status flags for Swift."
 topics:
   - foundations
   - decimals
