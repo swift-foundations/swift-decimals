@@ -84,11 +84,15 @@ extension Decimals {
                 status = .inexact
             }
 
+            // No `+=` overload for Decimal.Exponent; `+` here is heterogeneous (Self, Int).
+            // swiftlint:disable:next shorthand_operator
             e = e + roundDigits
 
             // Check if rounding caused overflow of coefficient
             if result > UInt64(Decimal.Format32.coefficientMax()) {
                 result /= 10
+                // No `+=` overload for Decimal.Exponent; `+` here is heterogeneous (Self, Int).
+                // swiftlint:disable:next shorthand_operator
                 e = e + 1
             }
 
@@ -165,11 +169,15 @@ extension Decimals {
                 status = .inexact
             }
 
+            // No `+=` overload for Decimal.Exponent; `+` here is heterogeneous (Self, Int).
+            // swiftlint:disable:next shorthand_operator
             e = e + roundDigits
 
             // Check if rounding caused overflow of coefficient
             if result > UInt128(Decimal.Format64.coefficientMax()) {
                 result /= 10
+                // No `+=` overload for Decimal.Exponent; `+` here is heterogeneous (Self, Int).
+                // swiftlint:disable:next shorthand_operator
                 e = e + 1
             }
 
@@ -246,11 +254,15 @@ extension Decimals {
                 status = .inexact
             }
 
+            // No `+=` overload for Decimal.Exponent; `+` here is heterogeneous (Self, Int).
+            // swiftlint:disable:next shorthand_operator
             e = e + roundDigits
 
             // Check if rounding caused overflow of coefficient
             if result > Decimal.Format128.coefficientMax() {
                 result /= 10
+                // No `+=` overload for Decimal.Exponent; `+` here is heterogeneous (Self, Int).
+                // swiftlint:disable:next shorthand_operator
                 e = e + 1
             }
 

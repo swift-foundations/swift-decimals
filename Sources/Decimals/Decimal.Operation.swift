@@ -10,7 +10,7 @@ extension Decimal {
     }
 }
 
-extension Decimal.Operation: Sendable where Value: Sendable { }
+extension Decimal.Operation: Sendable where Value: Sendable {}
 
 extension Decimal.Format32 {
     public var operation: Decimal.Operation<Self> {

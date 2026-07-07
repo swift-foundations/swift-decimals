@@ -11,7 +11,7 @@ extension Decimal {
     }
 }
 
-extension Decimal.Text: Sendable where Value: Sendable { }
+extension Decimal.Text: Sendable where Value: Sendable {}
 
 // MARK: - Parse Type
 
@@ -19,11 +19,11 @@ extension Decimal.Text {
     /// Static parser for creating decimal values from text.
     public struct Parse {
         @usableFromInline
-        internal init() { }
+        internal init() {}
     }
 }
 
-extension Decimal.Text.Parse: Sendable { }
+extension Decimal.Text.Parse: Sendable {}
 
 // MARK: - Format64 Text Accessor
 

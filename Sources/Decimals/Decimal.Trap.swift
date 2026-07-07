@@ -18,4 +18,4 @@ extension Decimal {
     }
 }
 
-extension Decimal.Trap: Sendable where Value: Sendable { }
+extension Decimal.Trap: Sendable where Value: Sendable {}

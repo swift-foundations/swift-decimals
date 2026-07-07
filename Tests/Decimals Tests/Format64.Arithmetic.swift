@@ -1,4 +1,5 @@
 import Testing
+
 @testable import Decimals
 
 @Suite struct Format64ArithmeticTests {

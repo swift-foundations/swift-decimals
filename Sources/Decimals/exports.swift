@@ -10,5 +10,5 @@
 //
 // ===----------------------------------------------------------------------===//
 
-@_exported public import IEEE_754
 @_exported public import Decimal_Primitives
+@_exported public import IEEE_754

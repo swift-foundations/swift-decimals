@@ -11,11 +11,11 @@ extension Decimal.Operation where Value == Decimal.Format32 {
 
         func rank(_ c: Decimal.Class, negative: Bool) -> Int {
             switch c {
-            case .quiet:     return negative ? 0 : 7
+            case .quiet: return negative ? 0 : 7
             case .signaling: return negative ? 1 : 6
-            case .infinite:  return negative ? 2 : 5
+            case .infinite: return negative ? 2 : 5
             case .normal, .subnormal: return negative ? 3 : 4
-            case .zero:      return negative ? 3 : 4
+            case .zero: return negative ? 3 : 4
             }
         }
 
@@ -72,11 +72,11 @@ extension Decimal.Operation where Value == Decimal.Format64 {
         // Get ordering rank for classification
         func rank(_ c: Decimal.Class, negative: Bool) -> Int {
             switch c {
-            case .quiet:     return negative ? 0 : 7
+            case .quiet: return negative ? 0 : 7
             case .signaling: return negative ? 1 : 6
-            case .infinite:  return negative ? 2 : 5
+            case .infinite: return negative ? 2 : 5
             case .normal, .subnormal: return negative ? 3 : 4
-            case .zero:      return negative ? 3 : 4  // -0 and +0 treated specially
+            case .zero: return negative ? 3 : 4  // -0 and +0 treated specially
             }
         }
 
@@ -132,11 +132,11 @@ extension Decimal.Operation where Value == Decimal.Format128 {
 
         func rank(_ c: Decimal.Class, negative: Bool) -> Int {
             switch c {
-            case .quiet:     return negative ? 0 : 7
+            case .quiet: return negative ? 0 : 7
             case .signaling: return negative ? 1 : 6
-            case .infinite:  return negative ? 2 : 5
+            case .infinite: return negative ? 2 : 5
             case .normal, .subnormal: return negative ? 3 : 4
-            case .zero:      return negative ? 3 : 4
+            case .zero: return negative ? 3 : 4
             }
         }
 

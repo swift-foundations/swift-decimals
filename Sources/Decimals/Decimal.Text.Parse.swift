@@ -33,18 +33,15 @@ extension Decimal.Text.Parse where Value == Decimal.Format64 {
             let i = bytes[index]
             let n = bytes[index + 1]
             let f = bytes[index + 2]
-            if (i == UInt8(ascii: "I") || i == UInt8(ascii: "i")) &&
-               (n == UInt8(ascii: "n") || n == UInt8(ascii: "N")) &&
-               (f == UInt8(ascii: "f") || f == UInt8(ascii: "F")) {
+            if (i == UInt8(ascii: "I") || i == UInt8(ascii: "i")) && (n == UInt8(ascii: "n") || n == UInt8(ascii: "N")) && (f == UInt8(ascii: "f") || f == UInt8(ascii: "F")) {
                 // Could be "Inf" or "Infinity"
                 if remaining >= 8 {
                     // Check full "Infinity"
                     let rest = [bytes[index + 3], bytes[index + 4], bytes[index + 5], bytes[index + 6], bytes[index + 7]]
-                    if (rest[0] == UInt8(ascii: "i") || rest[0] == UInt8(ascii: "I")) &&
-                       (rest[1] == UInt8(ascii: "n") || rest[1] == UInt8(ascii: "N")) &&
-                       (rest[2] == UInt8(ascii: "i") || rest[2] == UInt8(ascii: "I")) &&
-                       (rest[3] == UInt8(ascii: "t") || rest[3] == UInt8(ascii: "T")) &&
-                       (rest[4] == UInt8(ascii: "y") || rest[4] == UInt8(ascii: "Y")) {
+                    if (rest[0] == UInt8(ascii: "i") || rest[0] == UInt8(ascii: "I")) && (rest[1] == UInt8(ascii: "n") || rest[1] == UInt8(ascii: "N"))
+                        && (rest[2] == UInt8(ascii: "i") || rest[2] == UInt8(ascii: "I")) && (rest[3] == UInt8(ascii: "t") || rest[3] == UInt8(ascii: "T"))
+                        && (rest[4] == UInt8(ascii: "y") || rest[4] == UInt8(ascii: "Y"))
+                    {
                         if index + 8 == bytes.count {
                             return .infinity(sign: sign)
                         }
@@ -61,9 +58,7 @@ extension Decimal.Text.Parse where Value == Decimal.Format64 {
             let n1 = bytes[index]
             let a = bytes[index + 1]
             let n2 = bytes[index + 2]
-            if (n1 == UInt8(ascii: "N") || n1 == UInt8(ascii: "n")) &&
-               (a == UInt8(ascii: "a") || a == UInt8(ascii: "A")) &&
-               (n2 == UInt8(ascii: "N") || n2 == UInt8(ascii: "n")) {
+            if (n1 == UInt8(ascii: "N") || n1 == UInt8(ascii: "n")) && (a == UInt8(ascii: "a") || a == UInt8(ascii: "A")) && (n2 == UInt8(ascii: "N") || n2 == UInt8(ascii: "n")) {
                 // TODO: Parse optional payload
                 return .nan()
             }
@@ -254,16 +249,13 @@ extension Decimal.Text.Parse where Value == Decimal.Format32 {
             let i = bytes[index]
             let n = bytes[index + 1]
             let f = bytes[index + 2]
-            if (i == UInt8(ascii: "I") || i == UInt8(ascii: "i")) &&
-               (n == UInt8(ascii: "n") || n == UInt8(ascii: "N")) &&
-               (f == UInt8(ascii: "f") || f == UInt8(ascii: "F")) {
+            if (i == UInt8(ascii: "I") || i == UInt8(ascii: "i")) && (n == UInt8(ascii: "n") || n == UInt8(ascii: "N")) && (f == UInt8(ascii: "f") || f == UInt8(ascii: "F")) {
                 if remaining >= 8 {
                     let rest = [bytes[index + 3], bytes[index + 4], bytes[index + 5], bytes[index + 6], bytes[index + 7]]
-                    if (rest[0] == UInt8(ascii: "i") || rest[0] == UInt8(ascii: "I")) &&
-                       (rest[1] == UInt8(ascii: "n") || rest[1] == UInt8(ascii: "N")) &&
-                       (rest[2] == UInt8(ascii: "i") || rest[2] == UInt8(ascii: "I")) &&
-                       (rest[3] == UInt8(ascii: "t") || rest[3] == UInt8(ascii: "T")) &&
-                       (rest[4] == UInt8(ascii: "y") || rest[4] == UInt8(ascii: "Y")) {
+                    if (rest[0] == UInt8(ascii: "i") || rest[0] == UInt8(ascii: "I")) && (rest[1] == UInt8(ascii: "n") || rest[1] == UInt8(ascii: "N"))
+                        && (rest[2] == UInt8(ascii: "i") || rest[2] == UInt8(ascii: "I")) && (rest[3] == UInt8(ascii: "t") || rest[3] == UInt8(ascii: "T"))
+                        && (rest[4] == UInt8(ascii: "y") || rest[4] == UInt8(ascii: "Y"))
+                    {
                         if index + 8 == bytes.count {
                             return .infinity(sign: sign)
                         }
@@ -280,9 +272,7 @@ extension Decimal.Text.Parse where Value == Decimal.Format32 {
             let n1 = bytes[index]
             let a = bytes[index + 1]
             let n2 = bytes[index + 2]
-            if (n1 == UInt8(ascii: "N") || n1 == UInt8(ascii: "n")) &&
-               (a == UInt8(ascii: "a") || a == UInt8(ascii: "A")) &&
-               (n2 == UInt8(ascii: "N") || n2 == UInt8(ascii: "n")) {
+            if (n1 == UInt8(ascii: "N") || n1 == UInt8(ascii: "n")) && (a == UInt8(ascii: "a") || a == UInt8(ascii: "A")) && (n2 == UInt8(ascii: "N") || n2 == UInt8(ascii: "n")) {
                 return .nan()
             }
         }
@@ -465,16 +455,13 @@ extension Decimal.Text.Parse where Value == Decimal.Format128 {
             let i = bytes[index]
             let n = bytes[index + 1]
             let f = bytes[index + 2]
-            if (i == UInt8(ascii: "I") || i == UInt8(ascii: "i")) &&
-               (n == UInt8(ascii: "n") || n == UInt8(ascii: "N")) &&
-               (f == UInt8(ascii: "f") || f == UInt8(ascii: "F")) {
+            if (i == UInt8(ascii: "I") || i == UInt8(ascii: "i")) && (n == UInt8(ascii: "n") || n == UInt8(ascii: "N")) && (f == UInt8(ascii: "f") || f == UInt8(ascii: "F")) {
                 if remaining >= 8 {
                     let rest = [bytes[index + 3], bytes[index + 4], bytes[index + 5], bytes[index + 6], bytes[index + 7]]
-                    if (rest[0] == UInt8(ascii: "i") || rest[0] == UInt8(ascii: "I")) &&
-                       (rest[1] == UInt8(ascii: "n") || rest[1] == UInt8(ascii: "N")) &&
-                       (rest[2] == UInt8(ascii: "i") || rest[2] == UInt8(ascii: "I")) &&
-                       (rest[3] == UInt8(ascii: "t") || rest[3] == UInt8(ascii: "T")) &&
-                       (rest[4] == UInt8(ascii: "y") || rest[4] == UInt8(ascii: "Y")) {
+                    if (rest[0] == UInt8(ascii: "i") || rest[0] == UInt8(ascii: "I")) && (rest[1] == UInt8(ascii: "n") || rest[1] == UInt8(ascii: "N"))
+                        && (rest[2] == UInt8(ascii: "i") || rest[2] == UInt8(ascii: "I")) && (rest[3] == UInt8(ascii: "t") || rest[3] == UInt8(ascii: "T"))
+                        && (rest[4] == UInt8(ascii: "y") || rest[4] == UInt8(ascii: "Y"))
+                    {
                         if index + 8 == bytes.count {
                             return .infinity(sign: sign)
                         }
@@ -491,9 +478,7 @@ extension Decimal.Text.Parse where Value == Decimal.Format128 {
             let n1 = bytes[index]
             let a = bytes[index + 1]
             let n2 = bytes[index + 2]
-            if (n1 == UInt8(ascii: "N") || n1 == UInt8(ascii: "n")) &&
-               (a == UInt8(ascii: "a") || a == UInt8(ascii: "A")) &&
-               (n2 == UInt8(ascii: "N") || n2 == UInt8(ascii: "n")) {
+            if (n1 == UInt8(ascii: "N") || n1 == UInt8(ascii: "n")) && (a == UInt8(ascii: "a") || a == UInt8(ascii: "A")) && (n2 == UInt8(ascii: "N") || n2 == UInt8(ascii: "n")) {
                 return .nan()
             }
         }

@@ -51,8 +51,7 @@ extension Decimal.Operation where Value == Decimal.Format64 {
         // 4. Handle zero cases
         if x.test.zero || y.test.zero {
             if z.test.zero {
-                let resultSign: Decimal.Sign = (productSign == .negative && z.sign == .negative) ? .negative :
-                                               (context.rounding == .floor ? .negative : .positive)
+                let resultSign: Decimal.Sign = (productSign == .negative && z.sign == .negative) ? .negative : (context.rounding == .floor ? .negative : .positive)
                 return Decimal.Outcome(value: .zero(sign: resultSign), status: .none)
             }
             return Decimal.Outcome(value: z, status: .none)
@@ -209,8 +208,7 @@ extension Decimal.Operation where Value == Decimal.Format32 {
         // 4. Handle zero cases
         if x.test.zero || y.test.zero {
             if z.test.zero {
-                let resultSign: Decimal.Sign = (productSign == .negative && z.sign == .negative) ? .negative :
-                                               (context.rounding == .floor ? .negative : .positive)
+                let resultSign: Decimal.Sign = (productSign == .negative && z.sign == .negative) ? .negative : (context.rounding == .floor ? .negative : .positive)
                 return Decimal.Outcome(value: .zero(sign: resultSign), status: .none)
             }
             return Decimal.Outcome(value: z, status: .none)
@@ -361,8 +359,7 @@ extension Decimal.Operation where Value == Decimal.Format128 {
         // 4. Handle zero cases
         if x.test.zero || y.test.zero {
             if z.test.zero {
-                let resultSign: Decimal.Sign = (productSign == .negative && z.sign == .negative) ? .negative :
-                                               (context.rounding == .floor ? .negative : .positive)
+                let resultSign: Decimal.Sign = (productSign == .negative && z.sign == .negative) ? .negative : (context.rounding == .floor ? .negative : .positive)
                 return Decimal.Outcome(value: .zero(sign: resultSign), status: .none)
             }
             return Decimal.Outcome(value: z, status: .none)

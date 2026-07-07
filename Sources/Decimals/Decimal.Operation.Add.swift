@@ -34,8 +34,7 @@ extension Decimal.Operation where Value == Decimal.Format32 {
 
         // 3. Handle zero cases
         if a.test.zero && b.test.zero {
-            let resultSign: Decimal.Sign = (a.sign == .negative && b.sign == .negative) ? .negative :
-                                           (context.rounding == .floor ? .negative : .positive)
+            let resultSign: Decimal.Sign = (a.sign == .negative && b.sign == .negative) ? .negative : (context.rounding == .floor ? .negative : .positive)
             return Decimal.Outcome(value: .zero(sign: resultSign), status: .none)
         }
         if a.test.zero {
@@ -162,8 +161,7 @@ extension Decimal.Operation where Value == Decimal.Format64 {
         // 3. Handle zero cases
         if a.test.zero && b.test.zero {
             // 0 + 0: sign depends on rounding mode
-            let resultSign: Decimal.Sign = (a.sign == .negative && b.sign == .negative) ? .negative :
-                                           (context.rounding == .floor ? .negative : .positive)
+            let resultSign: Decimal.Sign = (a.sign == .negative && b.sign == .negative) ? .negative : (context.rounding == .floor ? .negative : .positive)
             return Decimal.Outcome(value: .zero(sign: resultSign), status: .none)
         }
         if a.test.zero {
@@ -292,8 +290,7 @@ extension Decimal.Operation where Value == Decimal.Format128 {
 
         // 3. Handle zero cases
         if a.test.zero && b.test.zero {
-            let resultSign: Decimal.Sign = (a.sign == .negative && b.sign == .negative) ? .negative :
-                                           (context.rounding == .floor ? .negative : .positive)
+            let resultSign: Decimal.Sign = (a.sign == .negative && b.sign == .negative) ? .negative : (context.rounding == .floor ? .negative : .positive)
             return Decimal.Outcome(value: .zero(sign: resultSign), status: .none)
         }
         if a.test.zero {

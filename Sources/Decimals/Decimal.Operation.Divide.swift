@@ -68,6 +68,8 @@ extension Decimal.Operation where Value == Decimal.Format32 {
             for _ in 0..<scaleUp {
                 coeffA *= 10
             }
+            // No `-=` overload for Decimal.Exponent; `-` here is heterogeneous (Self, Int).
+            // swiftlint:disable:next shorthand_operator
             expA = expA - scaleUp
         }
 
@@ -192,6 +194,8 @@ extension Decimal.Operation where Value == Decimal.Format64 {
             for _ in 0..<scaleUp {
                 coeffA *= 10
             }
+            // No `-=` overload for Decimal.Exponent; `-` here is heterogeneous (Self, Int).
+            // swiftlint:disable:next shorthand_operator
             expA = expA - scaleUp
         }
 
@@ -310,6 +314,8 @@ extension Decimal.Operation where Value == Decimal.Format128 {
             for _ in 0..<scaleUp {
                 coeffA *= 10
             }
+            // No `-=` overload for Decimal.Exponent; `-` here is heterogeneous (Self, Int).
+            // swiftlint:disable:next shorthand_operator
             expA = expA - scaleUp
         }
 

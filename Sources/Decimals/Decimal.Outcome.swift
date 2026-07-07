@@ -10,9 +10,9 @@ extension Decimal {
     }
 }
 
-extension Decimal.Outcome: Sendable where Value: Sendable { }
-extension Decimal.Outcome: Equatable where Value: Equatable { }
-extension Decimal.Outcome: Hashable where Value: Hashable { }
+extension Decimal.Outcome: Sendable where Value: Sendable {}
+extension Decimal.Outcome: Equatable where Value: Equatable {}
+extension Decimal.Outcome: Hashable where Value: Hashable {}
 
 extension Decimal.Outcome where Value: Sendable & Hashable {
     /// Throws if any trapped flag is raised; trap carries the value
