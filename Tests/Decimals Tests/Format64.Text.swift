@@ -2,7 +2,8 @@ import Testing
 
 @testable import Decimals
 
-@Suite struct Format64TextTests {
+extension Decimal.Format64.Test {
+    @Suite struct Text {
 
     // MARK: - Parsing
 
@@ -98,5 +99,6 @@ import Testing
         var buffer: [UInt8] = []
         value.text.render(appending: &buffer)
         #expect(String(decoding: buffer, as: UTF8.self) == "NaN")
+    }
     }
 }

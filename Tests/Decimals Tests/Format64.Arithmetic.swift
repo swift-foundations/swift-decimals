@@ -2,7 +2,8 @@ import Testing
 
 @testable import Decimals
 
-@Suite struct Format64ArithmeticTests {
+extension Decimal.Format64 {
+    @Suite struct Test {
 
     // MARK: - Addition
 
@@ -143,5 +144,6 @@ import Testing
     @Test func `negative Integer Conversion`() {
         let a: Decimal.Format64 = -9876
         #expect(Int64(exactly: a) == -9876)
+    }
     }
 }
