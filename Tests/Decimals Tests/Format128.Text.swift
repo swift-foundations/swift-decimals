@@ -55,5 +55,39 @@ extension Decimal.Format128.Test {
             let needed = value.text.requiredCapacity(style: .plain)
             #expect(needed > 64)
         }
+
+        // MARK: - Parsing / Edge Case
+
+        @Test func `parse exponent digit overflow resolves to high instead of trapping`() {
+            // A 25-digit exponent-digit string is legal grammar but would overflow
+            // Int's `expValue * 10 + digit` accumulation and trap (F-005).
+            #expect(throws: Decimal._TextError.high) {
+                _ = try Decimal.Format128.text([UInt8]("1E9999999999999999999999999".utf8))
+            }
+        }
+
+        @Test func `parse NaN rejects trailing garbage`() {
+            #expect(throws: Decimal._TextError.self) {
+                _ = try Decimal.Format128.text([UInt8]("NaN123garbage".utf8))
+            }
+        }
+
+        @Test func `parse NaN preserves sign`() throws {
+            let value = try Decimal.Format128.text([UInt8]("-NaN".utf8))
+            #expect(value.test.nan)
+            #expect(value.test.negative)
+        }
+
+        @Test func `parse rounds over precision coefficient instead of corrupting encoding`() throws {
+            // 35 significant digits (34 ones + a final 7); Format128's precision is
+            // 34. Dropped digit 7 > 5 rounds the 34th digit up, exponent 0 -> 1.
+            let value = try Decimal.Format128.text([UInt8]((String(repeating: "1", count: 34) + "7").utf8))
+            let expected = Decimal.Format128.encode(
+                sign: .positive,
+                exponent: Decimal.Exponent(1),
+                coefficient: UInt128(String(repeating: "1", count: 33) + "2")!
+            )
+            #expect(value == expected)
+        }
     }
 }

@@ -57,6 +57,51 @@ extension Decimal.Format64.Test {
             }
         }
 
+        // MARK: - Parsing / Edge Case
+
+        @Test func `parse exponent digit overflow resolves to high instead of trapping`() {
+            // A 25-digit exponent-digit string is legal grammar but would overflow
+            // Int's `expValue * 10 + digit` accumulation and trap (F-005). It must
+            // instead cleanly resolve to .high (the exponent is obviously far
+            // beyond any format's range).
+            #expect(throws: Decimal._TextError.high) {
+                _ = try Decimal.Format64.text([UInt8]("1E9999999999999999999999999".utf8))
+            }
+        }
+
+        @Test func `parse exponent digit underflow resolves to low instead of trapping`() {
+            #expect(throws: Decimal._TextError.low) {
+                _ = try Decimal.Format64.text([UInt8]("1E-9999999999999999999999999".utf8))
+            }
+        }
+
+        @Test func `parse NaN rejects trailing garbage`() {
+            // "NaN" followed by anything else is not a valid NaN literal; it must
+            // not be silently accepted as one (F-005).
+            #expect(throws: Decimal._TextError.self) {
+                _ = try Decimal.Format64.text([UInt8]("NaN123garbage".utf8))
+            }
+        }
+
+        @Test func `parse NaN preserves sign`() throws {
+            // "-NaN" previously always returned an unsigned (positive) NaN,
+            // discarding the parsed sign (F-005).
+            let value = try Decimal.Format64.text([UInt8]("-NaN".utf8))
+            #expect(value.test.nan)
+            #expect(value.test.negative)
+        }
+
+        @Test func `parse rounds over precision coefficient instead of corrupting encoding`() throws {
+            // 17 significant digits; Format64's precision is 16. Passing the raw
+            // 17-digit coefficient straight to encode() (as the pre-fix code did)
+            // silently corrupts the bit pattern instead of correctly rounding
+            // (F-005). Correctly rounded (round-half-even, dropped digit 7 > 5
+            // rounds up): 1234567890123456 -> 1234567890123457, exponent 0 -> 1.
+            let value = try Decimal.Format64.text([UInt8]("12345678901234567".utf8))
+            let expected = Decimal.Format64.encode(sign: .positive, exponent: Decimal.Exponent(1), coefficient: 1_234_567_890_123_457)
+            #expect(value == expected)
+        }
+
         // MARK: - Rendering
 
         @Test func `render Integer`() {
