@@ -85,5 +85,33 @@ extension Decimal.Format32.Test {
             #expect(result.value == expected)
             #expect(result.status.contains(.inexact))
         }
+
+        // MARK: - F-002/F-003 revision 2 (digit-position-aware decision)
+
+        @Test func `fuse still computes the exact sum when the product has fewer digits than the fixed guard window assumed`() {
+            // Revision 1's `precision + 2` fixed guard-digit window (9 for
+            // Format32) silently assumed the dominant (near) operand always
+            // carries close to `precision` digits of its own. It does not:
+            // x = y = 1, so the unrounded product is exactly 1 (1 digit) at
+            // exponent 0 — the operand the drop path would otherwise return
+            // bare. z = 5000000 (7 digits, leading digit 5) at exponent -11
+            // (gap 11). Revision 1's fixed window already fires here
+            // (11 >= 9), dropping z entirely and returning bare product = 1,
+            // discarding a genuinely significant operand. The
+            // digit-position-aware threshold is `precision + digits(z) -
+            // digits(product)` = `7 + 7 - 1` = 13: 11 does not clear it, so
+            // the exact sum must still be computed. Expected value verified
+            // by independent bignum arithmetic (Python); the exact sum needs
+            // only 7 significant digits, so this is a lossless
+            // (non-`.inexact`) result.
+            let x = Decimal.Format32.encode(sign: .positive, exponent: Decimal.Exponent(0), coefficient: 1)
+            let y = Decimal.Format32.encode(sign: .positive, exponent: Decimal.Exponent(0), coefficient: 1)
+            let z = Decimal.Format32.encode(sign: .positive, exponent: Decimal.Exponent(-11), coefficient: 5_000_000)
+            let result = x.operation.fuse(y, z)
+            let expected = Decimal.Format32.encode(sign: .positive, exponent: Decimal.Exponent(-6), coefficient: 1_000_050)
+            #expect(result.value != x)
+            #expect(result.value == expected)
+            #expect(!result.status.contains(.inexact))
+        }
     }
 }

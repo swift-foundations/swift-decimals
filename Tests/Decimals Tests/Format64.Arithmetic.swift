@@ -224,5 +224,34 @@ extension Decimal.Format64.Test {
             #expect(result.value == expected)
             #expect(result.status.contains(.inexact))
         }
+
+        // MARK: - F-002/F-003 revision 2 (digit-position-aware decision)
+
+        @Test func `fuse still computes the exact sum when the product has fewer digits than the fixed guard window assumed`() {
+            // Revision 1's `precision + 2` fixed guard-digit window (18 for
+            // Format64) silently assumed the dominant (near) operand always
+            // carries close to `precision` digits of its own. It does not:
+            // x = y = 1, so the unrounded product is exactly 1 (1 digit) at
+            // exponent 0 — the operand the drop path would otherwise return
+            // bare. z = 5000000000000000 (16 digits, leading digit 5 — see
+            // the KNOWN INTERACTION note above for why leading digit 8/9 is
+            // avoided) at exponent -25 (gap 25). Revision 1's fixed window
+            // already fires here (25 >= 18), dropping z entirely and
+            // returning bare product = 1, discarding a genuinely significant
+            // operand. The digit-position-aware threshold is `precision +
+            // digits(z) - digits(product)` = `16 + 16 - 1` = 31: 25 does not
+            // clear it, so the exact sum must still be computed. Expected
+            // value verified by independent bignum arithmetic (Python); the
+            // exact sum needs only 16 significant digits, so this is a
+            // lossless (non-`.inexact`) result.
+            let x = Decimal.Format64.encode(sign: .positive, exponent: Decimal.Exponent(0), coefficient: 1)
+            let y = Decimal.Format64.encode(sign: .positive, exponent: Decimal.Exponent(0), coefficient: 1)
+            let z = Decimal.Format64.encode(sign: .positive, exponent: Decimal.Exponent(-25), coefficient: 5_000_000_000_000_000)
+            let result = x.operation.fuse(y, z)
+            let expected = Decimal.Format64.encode(sign: .positive, exponent: Decimal.Exponent(-15), coefficient: 1_000_000_000_500_000)
+            #expect(result.value != x)
+            #expect(result.value == expected)
+            #expect(!result.status.contains(.inexact))
+        }
     }
 }

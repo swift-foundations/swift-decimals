@@ -363,24 +363,52 @@ extension Decimal.Operation where Value == Decimal.Format128 {
         // (7/16 digits), so overflow there can only happen well past the point
         // established by the same guard-digit argument below.
         //
-        // The sound boundary is `precision + 2` guard digits of exponent gap:
-        // - Below it, the far operand could still land within `precision` digits
-        //   of the near operand's most significant digit, so the exact sum is
-        //   computed in 256-bit (`Decimals.Wide`) space and rounded once.
-        // - At or beyond it, the near operand already carries at most `precision`
-        //   digits of its own (a precondition of being a validly encoded value),
-        //   so padding it out to `precision` digits can never reach as far down
-        //   as the far operand's magnitude — the far operand cannot change a
-        //   single retained or guard digit. The shortcut still routes the near
-        //   operand's own (coefficient, exponent) through the rounding kernel
-        //   with `sticky: true`, which is a proven no-op on the value itself
-        //   (its digit count already fits `precision`) that only contributes the
-        //   `.inexact` status the discarded operand earns.
-        let window = context.precision.rawValue + 2
+        // Revision 2 (digit-position-aware decision): a FIXED `precision + 2`
+        // guard-digit window is unsound. The prior comment's soundness
+        // argument assumed the near (retained) operand already carries close
+        // to `precision` digits of its own — but a validly encoded value can
+        // carry as few as 1 digit. The near operand's own most significant
+        // digit, not the exponent gap in the abstract, is what anchors the
+        // `precision`-digit retained window; when the near operand has fewer
+        // digits, that window's floor sits closer to the far operand than a
+        // fixed gap assumes, so a fixed threshold can misclassify a
+        // still-significant far operand as safely droppable. The corrected,
+        // digit-position-aware test: the drop is safe only when the far
+        // operand's most significant digit lies strictly more than
+        // `precision` digits below the near operand's most significant digit,
+        // i.e. `diff > digits(far) - digits(near) + precision`. Below that
+        // (inclusive), compute the exact sum in 256-bit (`Decimals.Wide`)
+        // space and round once. The worst case (`digits(far) == precision`,
+        // `digits(near) == 1`) needs `diff >= 2 * precision` before a drop is
+        // safe. `digits(...)` is computed per branch below (the near/far
+        // roles swap with which operand carries the larger exponent) via
+        // `Decimals.Rounding.digitCount`, the same digit-counting the
+        // rounding kernel already performs internally.
+        //
+        // Overflow safety: the exact branch scales the near operand (larger
+        // exponent) up by `10^diff`, so its scaled digit span is
+        // `digits(near) + diff`. Substituting the boundary
+        // `diff <= precision + digits(far) - digits(near)` bounds that span
+        // by `precision + digits(far)`. Both `add()` operands are validly
+        // encoded Format128 values, so `digits(far) <= precision` (34) —
+        // worst-case span `34 + 34 = 68` digits, comfortably inside
+        // `Decimals.Wide`'s ~77-digit (256-bit) capacity. Whenever the far
+        // operand sits far enough below to threaten that capacity, the
+        // digit-position condition has already classified it as safe to
+        // drop, so `multipliedBy10()`'s precondition is never fed an
+        // overflowing scale by a legal finite input.
+        //
+        // The drop path's `sticky: true` is unconditionally correct (not a
+        // hardcoded assumption): it is only reached once the far operand is
+        // provably nonzero, since both-zero and either-zero cases are
+        // already handled in step 3 above.
 
         if expA < expB {
             let diff = expB - expA
-            if diff.rawValue < window {
+            let digitsFar = Decimals.Rounding.digitCount(coeffA)
+            let digitsNear = Decimals.Rounding.digitCount(coeffB)
+            let threshold = context.precision.rawValue + digitsFar - digitsNear
+            if diff.rawValue <= threshold {
                 let scaledB = Decimals.Wide.multiplied(Decimals.Wide(coeffB), byPowerOf10: diff.rawValue)
                 let wideA = Decimals.Wide(coeffA)
                 let resultSign: Decimal.Sign
@@ -427,7 +455,10 @@ extension Decimal.Operation where Value == Decimal.Format128 {
             return Decimal.Outcome(value: Value.encode(sign: signB, exponent: finalExp, coefficient: finalCoeff), status: status)
         } else if expB < expA {
             let diff = expA - expB
-            if diff.rawValue < window {
+            let digitsFar = Decimals.Rounding.digitCount(coeffB)
+            let digitsNear = Decimals.Rounding.digitCount(coeffA)
+            let threshold = context.precision.rawValue + digitsFar - digitsNear
+            if diff.rawValue <= threshold {
                 let scaledA = Decimals.Wide.multiplied(Decimals.Wide(coeffA), byPowerOf10: diff.rawValue)
                 let wideB = Decimals.Wide(coeffB)
                 let resultSign: Decimal.Sign

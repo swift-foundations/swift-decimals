@@ -91,9 +91,17 @@ extension Decimals.Wide {
     func subtracting(_ other: Self) -> Self {
         precondition(self >= other, "Decimals.Wide subtraction requires self >= other")
         let (lowDiff, lowBorrow) = low.subtractingReportingOverflow(other.low)
-        let (highDiff, highBorrow) = high.subtractingReportingOverflow(other.high)
-        let (highDiff2, borrowOverflow) = highDiff.subtractingReportingOverflow(lowBorrow ? 1 : 0)
-        precondition(!highBorrow || !borrowOverflow, "Decimals.Wide subtraction underflowed")
+        let (highDiff, _) = high.subtractingReportingOverflow(other.high)
+        // A second precondition guarding this borrow used to read
+        // `!highBorrow || !borrowOverflow` — but the `self >= other`
+        // precondition above already forces `highBorrow` to always be
+        // `false` here (either `high > other.high`, in which case
+        // `subtractingReportingOverflow` cannot borrow, or `high ==
+        // other.high` with `low >= other.low`, which also cannot borrow),
+        // making that second check a tautology (`true || x` regardless of
+        // `x`) rather than a real assertion. Removed; this subtraction
+        // cannot underflow given the precondition already enforced above.
+        let (highDiff2, _) = highDiff.subtractingReportingOverflow(lowBorrow ? 1 : 0)
         return Self(high: highDiff2, low: lowDiff)
     }
 

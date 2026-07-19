@@ -9,6 +9,37 @@ extension Decimals {
 }
 
 extension Decimals.Rounding {
+    /// The number of significant decimal digits in `coefficient` (`0` has `0` digits).
+    ///
+    /// Shared by callers that need to make a digit-position-aware decision
+    /// before rounding (e.g. `add()`/`fuse()`'s exact-vs-drop exponent-gap
+    /// test) — the same digit-counting loop this file already runs
+    /// internally to decide how many digits a rounding pass must remove.
+    static func digitCount(_ coefficient: UInt64) -> Int {
+        var digits = 0
+        var temp = coefficient
+        while temp > 0 {
+            digits += 1
+            temp /= 10
+        }
+        return digits
+    }
+
+    /// The number of significant decimal digits in `coefficient` (`0` has `0` digits).
+    ///
+    /// See the `UInt64` overload's documentation.
+    static func digitCount(_ coefficient: UInt128) -> Int {
+        var digits = 0
+        var temp = coefficient
+        while temp > 0 {
+            digits += 1
+            temp /= 10
+        }
+        return digits
+    }
+}
+
+extension Decimals.Rounding {
     /// Round a Format32 coefficient to fit in the specified precision
     ///
     /// - Parameters:

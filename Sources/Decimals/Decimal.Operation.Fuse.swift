@@ -102,17 +102,38 @@ extension Decimal.Operation where Value == Decimal.Format64 {
         // either fell back to "return the other operand unscaled" the instant
         // scaling overflowed, or — worse — left BOTH coefficients unscaled once
         // `diff` exceeded a fixed cutoff and still combined them as if they shared
-        // an exponent, silently producing a wrong result (F-003). The guard-digit
-        // argument from add()'s F-002 revision 1 fix generalizes here unchanged:
-        // below `precision + 2` digits of gap, compute exactly; at or beyond it,
-        // the discarded operand cannot affect a single retained or guard digit of
-        // the correctly-rounded result, but must still be folded into the
-        // rounding decision as a sticky (nonzero-remainder) contribution.
-        let window = context.precision.rawValue + 2
+        // an exponent, silently producing a wrong result (F-003).
+        //
+        // Revision 2 (digit-position-aware decision): a FIXED `precision + 2`
+        // guard-digit window is unsound — it silently assumes the near
+        // (retained) operand carries close to `precision` digits of its own,
+        // which is false whenever it has few digits (e.g. `x * y` with both
+        // 1-digit inputs). The corrected test: the drop is safe only when the
+        // far operand's most significant digit lies strictly more than
+        // `precision` digits below the near operand's most significant digit,
+        // i.e. `diff > digits(far) - digits(near) + precision`. Below that
+        // (inclusive), compute the exact sum in `Decimals.Wide`. `digits(...)`
+        // is computed per branch below via `Decimals.Rounding.digitCount` (the
+        // near/far roles swap with which operand carries the larger exponent).
+        //
+        // Overflow safety: the exact branch scales the near operand up by
+        // `10^diff`, bounding its scaled span at `digits(near) + diff <=
+        // precision + digits(far)`. `z` is a validly encoded Format64 value
+        // (`digits(z) <= 16`); the unrounded product can carry up to `2 *
+        // precision` (32) digits. Worst case span `16 + 32 = 48` digits,
+        // comfortably inside `Decimals.Wide`'s ~77-digit capacity — so
+        // `multipliedBy10()`'s precondition is never fed an overflowing scale
+        // by a legal finite input. The drop path's `sticky: true` is
+        // unconditionally correct: it is only reached once the discarded
+        // operand is provably nonzero (zero cases are handled in steps 4/6
+        // above).
 
         if pExp < zExp {
             let diff = zExp - pExp
-            if diff.rawValue < window {
+            let digitsFar = Decimals.Rounding.digitCount(pCoeff)
+            let digitsNear = Decimals.Rounding.digitCount(zCoeff)
+            let threshold = context.precision.rawValue + digitsFar - digitsNear
+            if diff.rawValue <= threshold {
                 let scaledZ = Decimals.Wide.multiplied(Decimals.Wide(zCoeff), byPowerOf10: diff.rawValue)
                 let wideP = Decimals.Wide(pCoeff)
                 let resultSign: Decimal.Sign
@@ -161,7 +182,10 @@ extension Decimal.Operation where Value == Decimal.Format64 {
             return Decimal.Outcome(value: Value.encode(sign: z.sign, exponent: finalExp, coefficient: finalCoeff), status: status)
         } else if zExp < pExp {
             let diff = pExp - zExp
-            if diff.rawValue < window {
+            let digitsFar = Decimals.Rounding.digitCount(zCoeff)
+            let digitsNear = Decimals.Rounding.digitCount(pCoeff)
+            let threshold = context.precision.rawValue + digitsFar - digitsNear
+            if diff.rawValue <= threshold {
                 let scaledP = Decimals.Wide.multiplied(Decimals.Wide(pCoeff), byPowerOf10: diff.rawValue)
                 let wideZ = Decimals.Wide(zCoeff)
                 let resultSign: Decimal.Sign
@@ -357,17 +381,38 @@ extension Decimal.Operation where Value == Decimal.Format32 {
         // either fell back to "return the other operand unscaled" the instant
         // scaling overflowed, or — worse — left BOTH coefficients unscaled once
         // `diff` exceeded a fixed cutoff and still combined them as if they shared
-        // an exponent, silently producing a wrong result (F-003). The guard-digit
-        // argument from add()'s F-002 revision 1 fix generalizes here unchanged:
-        // below `precision + 2` digits of gap, compute exactly; at or beyond it,
-        // the discarded operand cannot affect a single retained or guard digit of
-        // the correctly-rounded result, but must still be folded into the
-        // rounding decision as a sticky (nonzero-remainder) contribution.
-        let window = context.precision.rawValue + 2
+        // an exponent, silently producing a wrong result (F-003).
+        //
+        // Revision 2 (digit-position-aware decision): a FIXED `precision + 2`
+        // guard-digit window is unsound — it silently assumes the near
+        // (retained) operand carries close to `precision` digits of its own,
+        // which is false whenever it has few digits (e.g. `x * y` with both
+        // 1-digit inputs). The corrected test: the drop is safe only when the
+        // far operand's most significant digit lies strictly more than
+        // `precision` digits below the near operand's most significant digit,
+        // i.e. `diff > digits(far) - digits(near) + precision`. Below that
+        // (inclusive), compute the exact sum in `Decimals.Wide`. `digits(...)`
+        // is computed per branch below via `Decimals.Rounding.digitCount` (the
+        // near/far roles swap with which operand carries the larger exponent).
+        //
+        // Overflow safety: the exact branch scales the near operand up by
+        // `10^diff`, bounding its scaled span at `digits(near) + diff <=
+        // precision + digits(far)`. `z` is a validly encoded Format32 value
+        // (`digits(z) <= 7`); the unrounded product can carry up to `2 *
+        // precision` (14) digits. Worst case span `7 + 14 = 21` digits,
+        // comfortably inside `Decimals.Wide`'s ~77-digit capacity — so
+        // `multipliedBy10()`'s precondition is never fed an overflowing scale
+        // by a legal finite input. The drop path's `sticky: true` is
+        // unconditionally correct: it is only reached once the discarded
+        // operand is provably nonzero (zero cases are handled in steps 4/6
+        // above).
 
         if productExp < zExp {
             let diff = zExp - productExp
-            if diff.rawValue < window {
+            let digitsFar = Decimals.Rounding.digitCount(productCoeff)
+            let digitsNear = Decimals.Rounding.digitCount(zCoeff)
+            let threshold = context.precision.rawValue + digitsFar - digitsNear
+            if diff.rawValue <= threshold {
                 let scaledZ = Decimals.Wide.multiplied(Decimals.Wide(UInt128(zCoeff)), byPowerOf10: diff.rawValue)
                 let wideP = Decimals.Wide(UInt128(productCoeff))
                 let resultSign: Decimal.Sign
@@ -416,7 +461,10 @@ extension Decimal.Operation where Value == Decimal.Format32 {
             return Decimal.Outcome(value: Value.encode(sign: z.sign, exponent: finalExp, coefficient: finalCoeff), status: status)
         } else if zExp < productExp {
             let diff = productExp - zExp
-            if diff.rawValue < window {
+            let digitsFar = Decimals.Rounding.digitCount(zCoeff)
+            let digitsNear = Decimals.Rounding.digitCount(productCoeff)
+            let threshold = context.precision.rawValue + digitsFar - digitsNear
+            if diff.rawValue <= threshold {
                 let scaledP = Decimals.Wide.multiplied(Decimals.Wide(UInt128(productCoeff)), byPowerOf10: diff.rawValue)
                 let wideZ = Decimals.Wide(UInt128(zCoeff))
                 let resultSign: Decimal.Sign
@@ -615,17 +663,46 @@ extension Decimal.Operation where Value == Decimal.Format128 {
         // either fell back to "return the other operand unscaled" the instant
         // scaling overflowed, or — worse — left BOTH coefficients unscaled once
         // `diff` exceeded a fixed cutoff and still combined them as if they
-        // shared an exponent, silently producing a wrong result (F-003). The
-        // guard-digit argument from add()'s F-002 revision 1 fix generalizes here
-        // unchanged: below `precision + 2` digits of gap, compute exactly; at or
-        // beyond it, the discarded operand cannot affect a single retained or
-        // guard digit of the correctly-rounded result, but must still be folded
-        // into the rounding decision as a sticky (nonzero-remainder) contribution.
-        let window = context.precision.rawValue + 2
+        // shared an exponent, silently producing a wrong result (F-003).
+        //
+        // Revision 2 (digit-position-aware decision): a FIXED `precision + 2`
+        // guard-digit window is unsound — it silently assumes the near
+        // (retained) operand carries close to `precision` digits of its own,
+        // which is false whenever it has few digits (e.g. `x * y` with both
+        // 1-digit inputs, or `z` alone carrying just 1 digit). The corrected
+        // test: the drop is safe only when the far operand's most significant
+        // digit lies strictly more than `precision` digits below the near
+        // operand's most significant digit, i.e. `diff > digits(far) -
+        // digits(near) + precision`. Below that (inclusive), compute the exact
+        // sum in `Decimals.Wide`. `digits(...)` is computed per branch below
+        // via `Decimals.Rounding.digitCount` (the near/far roles swap with
+        // which operand carries the larger exponent).
+        //
+        // Overflow safety: the exact branch scales the near operand up by
+        // `10^diff`, bounding its scaled span at `digits(near) + diff <=
+        // precision + digits(far)`. `z` is a validly encoded Format128 value
+        // (`digits(z) <= 34`); `productCoeff` is a `UInt128`, so its own
+        // checked multiplication (`coeffX * coeffY`, step 5 above) already
+        // traps before this code runs on any input whose true product would
+        // need more than UInt128's ~39-digit capacity — a pre-existing, out-
+        // of-scope limitation, not something this revision changes, but it
+        // does mean `digits(product) <= 39` for every input that reaches this
+        // alignment logic. Worst case span (`z` dominant, product discarded)
+        // `34 + 39 = 73` digits; the opposite case (product dominant, `z`
+        // discarded) is bounded by `34 + 34 = 68`. Both are comfortably
+        // inside `Decimals.Wide`'s ~77-digit (256-bit) capacity — so
+        // `multipliedBy10()`'s precondition is never fed an overflowing scale
+        // by a legal finite input. The drop path's `sticky: true` is
+        // unconditionally correct: it is only reached once the discarded
+        // operand is provably nonzero (zero cases are handled in steps 4/6
+        // above).
 
         if productExp < zExp {
             let diff = zExp - productExp
-            if diff.rawValue < window {
+            let digitsFar = Decimals.Rounding.digitCount(productCoeff)
+            let digitsNear = Decimals.Rounding.digitCount(zCoeff)
+            let threshold = context.precision.rawValue + digitsFar - digitsNear
+            if diff.rawValue <= threshold {
                 let scaledZ = Decimals.Wide.multiplied(Decimals.Wide(zCoeff), byPowerOf10: diff.rawValue)
                 let wideP = Decimals.Wide(productCoeff)
                 let resultSign: Decimal.Sign
@@ -674,7 +751,10 @@ extension Decimal.Operation where Value == Decimal.Format128 {
             return Decimal.Outcome(value: Value.encode(sign: z.sign, exponent: finalExp, coefficient: finalCoeff), status: status)
         } else if zExp < productExp {
             let diff = productExp - zExp
-            if diff.rawValue < window {
+            let digitsFar = Decimals.Rounding.digitCount(zCoeff)
+            let digitsNear = Decimals.Rounding.digitCount(productCoeff)
+            let threshold = context.precision.rawValue + digitsFar - digitsNear
+            if diff.rawValue <= threshold {
                 let scaledP = Decimals.Wide.multiplied(Decimals.Wide(productCoeff), byPowerOf10: diff.rawValue)
                 let wideZ = Decimals.Wide(zCoeff)
                 let resultSign: Decimal.Sign
