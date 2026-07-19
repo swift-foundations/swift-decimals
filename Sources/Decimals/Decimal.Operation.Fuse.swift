@@ -203,13 +203,36 @@ extension Decimal.Operation where Value == Decimal.Format64 {
             // (i.e. the UNROUNDED product itself needs internal rounding),
             // which is exactly the regime `Fuse()`'s product coefficient can
             // reach. `effectiveThreshold` widens the exact-vs-drop boundary
-            // to `max(threshold, digitsFar)` for opposite-sign `z` only —
-            // same-sign keeps the untouched `threshold` and untouched drop
-            // path below, bit-for-bit (see the soundness table in this
-            // revision's report for the full derivation and the same-sign
-            // residual risk this deliberately leaves out of scope).
+            // to `max(threshold, digitsFar)`.
+            //
+            // F-002/F-003 revision 5: revision 4 only applied this widening
+            // to opposite-sign `z`, leaving the SAME-SIGN drop DECISION on
+            // the bare `threshold` — bit-for-bit unchanged from revision 3.
+            // That is unsound for the identical reason: whenever
+            // `threshold < diff <= digitsFar`, z's magnitude is bounded by
+            // `10^digitsFar` but is NOT yet provably below one unit of the
+            // product's own least-significant digit (that only holds once
+            // `diff > digitsFar`), so a same-sign `sticky: true` on the bare
+            // product can push the result across a round-half-even boundary
+            // in the wrong direction — silently 1 ULP toward zero. The fix
+            // is the identical widening, now applied regardless of sign:
+            // `effectiveThreshold = max(threshold, digitsFar)` for BOTH
+            // same-sign and opposite-sign `z`. This only ever routes MORE
+            // cases to the already-verified-clean exact `Decimals.Wide`
+            // branch (never fewer — `effectiveThreshold >= threshold`
+            // always), so no case previously routed to "exact" is newly
+            // routed to "drop". Once beyond `effectiveThreshold`,
+            // `diff > digitsFar` is guaranteed (epsilon < 1 in the
+            // product's own raw units), at which point the existing
+            // same-sign `sticky: true` drop below is already sound — same-
+            // sign requires no signed guard-digit fold (unlike opposite-
+            // sign): a same-sign tail can only ever push a tie away from
+            // even in the direction `sticky: true` already models, so no
+            // fold is needed, only the widened routing decision. See this
+            // revision's report for the full derivation and fuzz
+            // verification.
             let sameSign = productSign == z.sign
-            let effectiveThreshold = sameSign ? threshold : max(threshold, digitsFar)
+            let effectiveThreshold = max(threshold, digitsFar)
             if diff.rawValue <= effectiveThreshold {
                 let scaledP = Decimals.Wide.multiplied(Decimals.Wide(pCoeff), byPowerOf10: diff.rawValue)
                 let wideZ = Decimals.Wide(zCoeff)
@@ -547,13 +570,18 @@ extension Decimal.Operation where Value == Decimal.Format32 {
             let digitsFar = Decimals.Rounding.digitCount(zCoeff)
             let digitsNear = Decimals.Rounding.digitCount(productCoeff)
             let threshold = context.precision.rawValue + digitsFar - digitsNear + 1
-            // F-002/F-003 revision 4: see the Format64 branch above (and this
-            // revision's report) for the full derivation. `effectiveThreshold`
-            // widens the exact-vs-drop boundary to `max(threshold, digitsFar)`
-            // for opposite-sign z only; same-sign keeps `threshold` and the
-            // untouched drop path below, bit-for-bit.
+            // F-002/F-003 revision 4/5: see the Format64 branch above (and
+            // this revision's report) for the full derivation.
+            // `effectiveThreshold` widens the exact-vs-drop boundary to
+            // `max(threshold, digitsFar)` for BOTH same-sign and
+            // opposite-sign z (revision 5 extended revision 4's
+            // opposite-sign-only widening to same-sign, which had the
+            // identical unsound bare-`threshold` near-tie defect); the
+            // same-sign drop path's body below remains bit-for-bit
+            // unchanged — sound once reached because `diff > digitsFar` is
+            // then guaranteed.
             let sameSign = productSign == z.sign
-            let effectiveThreshold = sameSign ? threshold : max(threshold, digitsFar)
+            let effectiveThreshold = max(threshold, digitsFar)
             if diff.rawValue <= effectiveThreshold {
                 let scaledP = Decimals.Wide.multiplied(Decimals.Wide(UInt128(productCoeff)), byPowerOf10: diff.rawValue)
                 let wideZ = Decimals.Wide(UInt128(zCoeff))
@@ -874,18 +902,25 @@ extension Decimal.Operation where Value == Decimal.Format128 {
             let digitsFar = Decimals.Rounding.digitCount(zCoeff)
             let digitsNear = Decimals.Rounding.digitCount(productCoeff)
             let threshold = context.precision.rawValue + digitsFar - digitsNear + 1
-            // F-002/F-003 revision 4: see the Format64 branch's comment above
-            // (and this revision's report) for the full derivation.
+            // F-002/F-003 revision 4/5: see the Format64 branch's comment
+            // above (and this revision's report) for the full derivation.
             // `effectiveThreshold` widens the exact-vs-drop boundary to
-            // `max(threshold, digitsFar)` for opposite-sign z only; same-sign
-            // keeps `threshold` and the untouched drop path below, bit-for-
-            // bit. Headroom: digitsNear <= 39, digitsFar <= 34, so the
-            // widened exact branch's worst-case scaled span is
+            // `max(threshold, digitsFar)` for BOTH same-sign and
+            // opposite-sign z (revision 5 extended revision 4's
+            // opposite-sign-only widening to same-sign, which had the
+            // identical unsound bare-`threshold` near-tie defect); the
+            // same-sign drop path's body below remains bit-for-bit
+            // unchanged — sound once reached because `diff > digitsFar` is
+            // then guaranteed. Headroom: digitsNear <= 39, digitsFar <= 34,
+            // so the widened exact branch's worst-case scaled span is
             // `digitsNear + digitsFar <= 73` digits — within the 74-digit
             // worst case rev-3 already proved safe for `Decimals.Wide`'s
-            // 256-bit (~78-digit) capacity elsewhere in this file.
+            // 256-bit (~78-digit) capacity elsewhere in this file. This
+            // applies equally regardless of which sign triggers the
+            // widened exact branch, since the span bound does not depend
+            // on sign.
             let sameSign = productSign == z.sign
-            let effectiveThreshold = sameSign ? threshold : max(threshold, digitsFar)
+            let effectiveThreshold = max(threshold, digitsFar)
             if diff.rawValue <= effectiveThreshold {
                 let scaledP = Decimals.Wide.multiplied(Decimals.Wide(productCoeff), byPowerOf10: diff.rawValue)
                 let wideZ = Decimals.Wide(zCoeff)

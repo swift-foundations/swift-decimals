@@ -254,6 +254,41 @@ extension Decimal.Format64.Test {
             #expect(!result.status.contains(.inexact))
         }
 
+        // MARK: - F-002/F-003 revision 5 (product-dominates same-sign
+        // near-tie widening, [INST-TEST-013])
+
+        @Test func `fuse rounds a same-sign near tie in the product's own digits correctly when z is not negligible`() {
+            // Revision 4 fixed the opposite-sign sign-drop but deliberately
+            // left the SAME-SIGN drop path bit-for-bit unchanged (bare
+            // `threshold`, no widening). That path is unsound too: once
+            // `diff` exceeds the bare `threshold` but is still `<=
+            // digitsFar`, z's magnitude (bounded by `10^digitsFar`) can be
+            // large enough to cross a round-half-even boundary that a
+            // boolean `sticky: true` cannot represent (it can only ever
+            // mean "some nonzero amount less than 1 unit").
+            //
+            // x = 8190249936086788, y = 917372637240375: product =
+            // 7513511183525749496806817665500 (31 digits) at exponent 0.
+            // z = +6635049452689808E-3 (digitsFar = 16, same sign).
+            // digitsNear = 31 > precision (16) collapses the bare threshold
+            // to `16 + 16 - 31 + 1` = 2; the gap (3) exceeds it and is `<=
+            // digitsFar` (16), landing in the old drop path even though z
+            // is NOT negligible. True value rounds (round-half-even, 16
+            // significant digits) UP to 7513511183525750E15 — not down to
+            // the bare product's own leading 16 digits, 7513511183525749E15.
+            // Independently verified with an exact-`Fraction` Python oracle
+            // (no floating-point or bounded-precision `Decimal` context
+            // involved).
+            let x = Decimal.Format64.encode(sign: .positive, exponent: Decimal.Exponent(0), coefficient: 8_190_249_936_086_788)
+            let y = Decimal.Format64.encode(sign: .positive, exponent: Decimal.Exponent(0), coefficient: 917_372_637_240_375)
+            let z = Decimal.Format64.encode(sign: .positive, exponent: Decimal.Exponent(-3), coefficient: 6_635_049_452_689_808)
+            let result = x.operation.fuse(y, z)
+            let wrongPreFix = Decimal.Format64.encode(sign: .positive, exponent: Decimal.Exponent(15), coefficient: 7_513_511_183_525_749)
+            let expected = Decimal.Format64.encode(sign: .positive, exponent: Decimal.Exponent(15), coefficient: 7_513_511_183_525_750)
+            #expect(result.value != wrongPreFix)
+            #expect(result.value == expected)
+        }
+
         // MARK: - F-002/F-003 revision 4 (product-dominates opposite-sign
         // exact-tie sign drop, [INST-TEST-013])
 

@@ -114,6 +114,66 @@ extension Decimal.Format32.Test {
             #expect(!result.status.contains(.inexact))
         }
 
+        // MARK: - F-002/F-003 revision 5 (product-dominates same-sign
+        // near-tie widening, [INST-TEST-013])
+
+        @Test func `fuse rounds a same-sign near tie in the product's own digits correctly when z is not negligible`() {
+            // Revision 4 fixed the opposite-sign sign-drop but deliberately
+            // left the SAME-SIGN drop path bit-for-bit unchanged (bare
+            // `threshold`, no widening). That path is unsound too: once
+            // `diff` exceeds the bare `threshold` but is still `<=
+            // digitsFar`, z's magnitude (bounded by `10^digitsFar`) can be
+            // as large as ~100 units of the product's own least-significant
+            // digit — large enough to cross a round-half-even boundary that
+            // a boolean `sticky: true` cannot represent (it can only ever
+            // mean "some nonzero amount less than 1 unit").
+            //
+            // x = 965551, y = 6929998: product = 6691266498898 (13 digits)
+            // at exponent 0. z = +7424422E-3 (digitsFar = 7, same sign).
+            // digitsNear = 13 > precision (7) collapses the bare threshold
+            // to `7 + 7 - 13 + 1` = 2; the gap (3) exceeds it and is `<=
+            // digitsFar` (7), landing in the old drop path even though z is
+            // NOT negligible. True value = 6691266498898 + 7424.422 =
+            // 6691266506322.422, which rounds (round-half-even, 7
+            // significant digits) UP to 6691267E6 — not down to the bare
+            // product's own leading 7 digits, 6691266E6. Independently
+            // verified with an exact-`Fraction` Python oracle (no
+            // floating-point or bounded-precision `Decimal` context
+            // involved).
+            let x = Decimal.Format32.encode(sign: .positive, exponent: Decimal.Exponent(0), coefficient: 965_551)
+            let y = Decimal.Format32.encode(sign: .positive, exponent: Decimal.Exponent(0), coefficient: 6_929_998)
+            let z = Decimal.Format32.encode(sign: .positive, exponent: Decimal.Exponent(-3), coefficient: 7_424_422)
+            let result = x.operation.fuse(y, z)
+            let wrongPreFix = Decimal.Format32.encode(sign: .positive, exponent: Decimal.Exponent(6), coefficient: 6_691_266)
+            let expected = Decimal.Format32.encode(sign: .positive, exponent: Decimal.Exponent(6), coefficient: 6_691_267)
+            #expect(result.value != wrongPreFix)
+            #expect(result.value == expected)
+        }
+
+        @Test func `fuse rounds a second same-sign near tie in the product's own digits correctly when z is not negligible`() {
+            // Second, independently-constructed reproducer for the same
+            // defect class as above (different digit widths/`diff`).
+            //
+            // x = 5070194, y = 4010670: product = 20334874969980 (14
+            // digits) at exponent 0. z = +3247266E-2 (digitsFar = 7, same
+            // sign). digitsNear = 14 > precision (7) collapses the bare
+            // threshold to `7 + 7 - 14 + 1` = 1; the gap (2) exceeds it and
+            // is `<= digitsFar` (7), landing in the old drop path. True
+            // value = 20334874969980 + 32472.66 = 20334875002452.66, which
+            // rounds (round-half-even, 7 significant digits) UP to
+            // 2033488E7 — not down to the bare product's own leading 7
+            // digits, 2033487E7. Independently verified with the same
+            // exact-`Fraction` oracle.
+            let x = Decimal.Format32.encode(sign: .positive, exponent: Decimal.Exponent(0), coefficient: 5_070_194)
+            let y = Decimal.Format32.encode(sign: .positive, exponent: Decimal.Exponent(0), coefficient: 4_010_670)
+            let z = Decimal.Format32.encode(sign: .positive, exponent: Decimal.Exponent(-2), coefficient: 3_247_266)
+            let result = x.operation.fuse(y, z)
+            let wrongPreFix = Decimal.Format32.encode(sign: .positive, exponent: Decimal.Exponent(7), coefficient: 2_033_487)
+            let expected = Decimal.Format32.encode(sign: .positive, exponent: Decimal.Exponent(7), coefficient: 2_033_488)
+            #expect(result.value != wrongPreFix)
+            #expect(result.value == expected)
+        }
+
         // MARK: - F-002/F-003 revision 4 (product-dominates opposite-sign
         // exact-tie sign drop, [INST-TEST-013])
 
