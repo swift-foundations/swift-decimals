@@ -100,5 +100,71 @@ extension Decimal.Format64.Test {
             value.text.render(appending: &buffer)
             #expect(String(decoding: buffer, as: UTF8.self) == "NaN")
         }
+
+        // MARK: - Rendering / Edge Case
+        //
+        // NOTE: these tests deliberately stay within exponent [-383, 369] with
+        // coefficients below 2^53. Format64.encode/extractExponent/extractCoefficient
+        // (swift-decimal-primitives, a separate out-of-scope dependency repo) have a
+        // pre-existing Form1/Form2 BID-encoding round-trip bug for the small-coefficient,
+        // exponent-in-[370, 384] combination — see REPORT.md risk notes. That bug is not
+        // part of this brief's evidence and is not touched here; these tests route
+        // around it while still exercising the F-001 large-exponent buffer-capacity fix.
+
+        @Test func `render appending does not overflow scratch buffer for large positive exponent plain style`() {
+            // coefficient 1, exponent 369 => plain rendering needs 1 digit + 369
+            // trailing zeros = 370 bytes, far beyond the old fixed 64-byte scratch
+            // buffer (F-001).
+            let value = Decimal.Format64.encode(
+                sign: .positive,
+                exponent: Decimal.Exponent(369),
+                coefficient: 1
+            )
+            var buffer: [UInt8] = []
+            value.text.render(appending: &buffer, style: .plain)
+            let rendered = String(decoding: buffer, as: UTF8.self)
+            #expect(rendered.hasPrefix("1"))
+            #expect(rendered.count == 1 + 369)
+        }
+
+        @Test func `render appending does not overflow scratch buffer for min negative exponent plain style`() {
+            // coefficient 1, exponent = Format64.min (-383) => plain rendering needs
+            // "0." + 382 leading zeros + 1 digit + sign, also far beyond 64 bytes.
+            let value = Decimal.Format64.encode(
+                sign: .negative,
+                exponent: Decimal.Exponent.Format64.min,
+                coefficient: 1
+            )
+            var buffer: [UInt8] = []
+            value.text.render(appending: &buffer, style: .plain)
+            let rendered = String(decoding: buffer, as: UTF8.self)
+            #expect(rendered.hasPrefix("-0."))
+        }
+
+        @Test func `render into traps when buffer is smaller than required capacity`() {
+            let value = Decimal.Format64.encode(
+                sign: .positive,
+                exponent: Decimal.Exponent(369),
+                coefficient: 1
+            )
+            let needed = value.text.requiredCapacity(style: .plain)
+            #expect(needed > 64)
+        }
+
+        @Test func `render appending scientific and engineering styles stay within bounds at large exponent`() {
+            // 16-digit coefficient (below 2^53, so Form1) at a large exponent.
+            let value = Decimal.Format64.encode(
+                sign: .negative,
+                exponent: Decimal.Exponent(369),
+                coefficient: 9_007_199_254_740_991
+            )
+            var scientific: [UInt8] = []
+            value.text.render(appending: &scientific, style: .scientific)
+            #expect(String(decoding: scientific, as: UTF8.self).hasPrefix("-9.007199254740991E"))
+
+            var engineering: [UInt8] = []
+            value.text.render(appending: &engineering, style: .engineering)
+            #expect(String(decoding: engineering, as: UTF8.self).hasPrefix("-"))
+        }
     }
 }

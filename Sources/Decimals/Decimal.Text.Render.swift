@@ -4,10 +4,20 @@ internal import ASCII_Decimal_Serializer_Primitives
 
 extension Decimal.Text where Value == Decimal.Format64 {
     /// Render into preallocated buffer, returns bytes written
+    ///
+    /// - Precondition: `buffer.count` must be at least `requiredCapacity(style:)` for
+    ///   this value and `style`. Callers that size their own buffers must query
+    ///   `requiredCapacity(style:)` first; `render(appending:)` does this automatically.
     public func render(
         into buffer: UnsafeMutableBufferPointer<UInt8>,
         style: Decimal.Text.Style = .plain
     ) -> Int {
+        let capacity = requiredCapacity(style: style)
+        precondition(
+            buffer.count >= capacity,
+            "Decimal.Text.render(into:): buffer has \(buffer.count) bytes but this value needs at least \(capacity) bytes for style \(style)."
+        )
+
         var offset = 0
 
         // Handle sign
@@ -174,13 +184,73 @@ extension Decimal.Text where Value == Decimal.Format64 {
         appending buffer: inout [UInt8],
         style: Decimal.Text.Style = .plain
     ) {
-        // Allocate enough space for max representation
-        // Max: sign (1) + 16 digits + decimal (1) + E (1) + sign (1) + 3 exp digits = 23
-        var temp = [UInt8](repeating: 0, count: 64)
+        // Size the scratch buffer exactly to what this value/style needs; a fixed
+        // 64-byte buffer is not large enough for large-magnitude exponents in
+        // `.plain` style (F-001).
+        var temp = [UInt8](repeating: 0, count: requiredCapacity(style: style))
         let count = temp.withUnsafeMutableBufferPointer { ptr in
             render(into: ptr, style: style)
         }
         buffer.append(contentsOf: temp[0..<count])
+    }
+
+    /// The number of bytes `render(into:style:)` may write for this value and `style`.
+    ///
+    /// `render(into:style:)` traps via precondition if the supplied buffer is
+    /// smaller than this. This is a safe (possibly slightly generous) upper bound,
+    /// not necessarily the exact byte count written.
+    public func requiredCapacity(style: Decimal.Text.Style = .plain) -> Int {
+        if base.test.nan {
+            return 4  // sign + "NaN"
+        }
+        if base.test.infinite {
+            return 9  // sign + "Infinity"
+        }
+        if base.test.zero {
+            return 2  // sign + "0"
+        }
+
+        let coefficient = base.extractCoefficient()
+        let exponent = base.extractExponent()
+        var digitCodes: [ASCII.Code] = []
+        ASCII.Decimal.Serializer().serialize(coefficient, into: &digitCodes)
+
+        return Self.requiredCapacity(numDigits: digitCodes.count, exponent: exponent.rawValue, style: style)
+    }
+
+    /// Safe upper bound on rendered byte length given a digit count and exponent, for `style`.
+    @usableFromInline
+    internal static func requiredCapacity(numDigits: Int, exponent: Int, style: Decimal.Text.Style) -> Int {
+        let adjustedExponent = exponent + numDigits - 1
+        // Bounds the plain-style leading/trailing zero run (see F-001 analysis:
+        // trailing-zero count is `exponent` when >= 0, leading-zero count is at
+        // most `-exponent` when < 0).
+        let zeroRun = max(exponent, -exponent)
+        let exponentDigits = decimalDigitCount(adjustedExponent)
+
+        switch style {
+        case .plain:
+            // sign + "0." lead-in + digits + decimal point + zero run
+            return 1 + 2 + numDigits + 1 + zeroRun
+        case .scientific:
+            // sign + first digit + decimal point + remaining digits + "E" + exponent sign + exponent digits
+            return 1 + 1 + 1 + numDigits + 1 + 1 + exponentDigits
+        case .engineering:
+            // sign + up to 3 padded integer digits + decimal point + remaining digits + "E" + exponent sign + exponent digits
+            return 1 + 3 + 1 + numDigits + 1 + 1 + exponentDigits
+        }
+    }
+
+    /// Number of base-10 digits needed to render `abs(value)` (minimum 1, matching `writeExponent`).
+    @usableFromInline
+    internal static func decimalDigitCount(_ value: Int) -> Int {
+        var count = 1
+        var remainder = value.magnitude / 10
+        while remainder > 0 {
+            count += 1
+            remainder /= 10
+        }
+        return count
     }
 }
 
@@ -188,10 +258,20 @@ extension Decimal.Text where Value == Decimal.Format64 {
 
 extension Decimal.Text where Value == Decimal.Format32 {
     /// Render into preallocated buffer, returns bytes written
+    ///
+    /// - Precondition: `buffer.count` must be at least `requiredCapacity(style:)` for
+    ///   this value and `style`. Callers that size their own buffers must query
+    ///   `requiredCapacity(style:)` first; `render(appending:)` does this automatically.
     public func render(
         into buffer: UnsafeMutableBufferPointer<UInt8>,
         style: Decimal.Text.Style = .plain
     ) -> Int {
+        let capacity = requiredCapacity(style: style)
+        precondition(
+            buffer.count >= capacity,
+            "Decimal.Text.render(into:): buffer has \(buffer.count) bytes but this value needs at least \(capacity) bytes for style \(style)."
+        )
+
         var offset = 0
 
         // Handle sign
@@ -352,12 +432,67 @@ extension Decimal.Text where Value == Decimal.Format32 {
         appending buffer: inout [UInt8],
         style: Decimal.Text.Style = .plain
     ) {
-        // Max: sign (1) + 7 digits + decimal (1) + E (1) + sign (1) + 2 exp digits = 13
-        var temp = [UInt8](repeating: 0, count: 32)
+        // Size the scratch buffer exactly to what this value/style needs; a fixed
+        // 32-byte buffer is not large enough for large-magnitude exponents in
+        // `.plain` style (F-001).
+        var temp = [UInt8](repeating: 0, count: requiredCapacity(style: style))
         let count = temp.withUnsafeMutableBufferPointer { ptr in
             render(into: ptr, style: style)
         }
         buffer.append(contentsOf: temp[0..<count])
+    }
+
+    /// The number of bytes `render(into:style:)` may write for this value and `style`.
+    ///
+    /// `render(into:style:)` traps via precondition if the supplied buffer is
+    /// smaller than this. This is a safe (possibly slightly generous) upper bound,
+    /// not necessarily the exact byte count written.
+    public func requiredCapacity(style: Decimal.Text.Style = .plain) -> Int {
+        if base.test.nan {
+            return 4  // sign + "NaN"
+        }
+        if base.test.infinite {
+            return 9  // sign + "Infinity"
+        }
+        if base.test.zero {
+            return 2  // sign + "0"
+        }
+
+        let coefficient = base.extractCoefficient()
+        let exponent = base.extractExponent()
+        var digitCodes: [ASCII.Code] = []
+        ASCII.Decimal.Serializer().serialize(coefficient, into: &digitCodes)
+
+        return Self.requiredCapacity(numDigits: digitCodes.count, exponent: exponent.rawValue, style: style)
+    }
+
+    /// Safe upper bound on rendered byte length given a digit count and exponent, for `style`.
+    @usableFromInline
+    internal static func requiredCapacity(numDigits: Int, exponent: Int, style: Decimal.Text.Style) -> Int {
+        let adjustedExponent = exponent + numDigits - 1
+        let zeroRun = max(exponent, -exponent)
+        let exponentDigits = decimalDigitCount(adjustedExponent)
+
+        switch style {
+        case .plain:
+            return 1 + 2 + numDigits + 1 + zeroRun
+        case .scientific:
+            return 1 + 1 + 1 + numDigits + 1 + 1 + exponentDigits
+        case .engineering:
+            return 1 + 3 + 1 + numDigits + 1 + 1 + exponentDigits
+        }
+    }
+
+    /// Number of base-10 digits needed to render `abs(value)` (minimum 1, matching `writeExponent`).
+    @usableFromInline
+    internal static func decimalDigitCount(_ value: Int) -> Int {
+        var count = 1
+        var remainder = value.magnitude / 10
+        while remainder > 0 {
+            count += 1
+            remainder /= 10
+        }
+        return count
     }
 }
 
@@ -365,10 +500,20 @@ extension Decimal.Text where Value == Decimal.Format32 {
 
 extension Decimal.Text where Value == Decimal.Format128 {
     /// Render into preallocated buffer, returns bytes written
+    ///
+    /// - Precondition: `buffer.count` must be at least `requiredCapacity(style:)` for
+    ///   this value and `style`. Callers that size their own buffers must query
+    ///   `requiredCapacity(style:)` first; `render(appending:)` does this automatically.
     public func render(
         into buffer: UnsafeMutableBufferPointer<UInt8>,
         style: Decimal.Text.Style = .plain
     ) -> Int {
+        let capacity = requiredCapacity(style: style)
+        precondition(
+            buffer.count >= capacity,
+            "Decimal.Text.render(into:): buffer has \(buffer.count) bytes but this value needs at least \(capacity) bytes for style \(style)."
+        )
+
         var offset = 0
 
         // Handle sign
@@ -529,11 +674,66 @@ extension Decimal.Text where Value == Decimal.Format128 {
         appending buffer: inout [UInt8],
         style: Decimal.Text.Style = .plain
     ) {
-        // Max: sign (1) + 34 digits + decimal (1) + E (1) + sign (1) + 4 exp digits = 42
-        var temp = [UInt8](repeating: 0, count: 64)
+        // Size the scratch buffer exactly to what this value/style needs; a fixed
+        // 64-byte buffer is not large enough for large-magnitude exponents in
+        // `.plain` style (F-001) — Format128's exponent range reaches +6144/-6143.
+        var temp = [UInt8](repeating: 0, count: requiredCapacity(style: style))
         let count = temp.withUnsafeMutableBufferPointer { ptr in
             render(into: ptr, style: style)
         }
         buffer.append(contentsOf: temp[0..<count])
+    }
+
+    /// The number of bytes `render(into:style:)` may write for this value and `style`.
+    ///
+    /// `render(into:style:)` traps via precondition if the supplied buffer is
+    /// smaller than this. This is a safe (possibly slightly generous) upper bound,
+    /// not necessarily the exact byte count written.
+    public func requiredCapacity(style: Decimal.Text.Style = .plain) -> Int {
+        if base.test.nan {
+            return 4  // sign + "NaN"
+        }
+        if base.test.infinite {
+            return 9  // sign + "Infinity"
+        }
+        if base.test.zero {
+            return 2  // sign + "0"
+        }
+
+        let coefficient = base.extractCoefficient()
+        let exponent = base.extractExponent()
+        var digitCodes: [ASCII.Code] = []
+        ASCII.Decimal.Serializer().serialize(coefficient, into: &digitCodes)
+
+        return Self.requiredCapacity(numDigits: digitCodes.count, exponent: exponent.rawValue, style: style)
+    }
+
+    /// Safe upper bound on rendered byte length given a digit count and exponent, for `style`.
+    @usableFromInline
+    internal static func requiredCapacity(numDigits: Int, exponent: Int, style: Decimal.Text.Style) -> Int {
+        let adjustedExponent = exponent + numDigits - 1
+        let zeroRun = max(exponent, -exponent)
+        let exponentDigits = decimalDigitCount(adjustedExponent)
+
+        switch style {
+        case .plain:
+            return 1 + 2 + numDigits + 1 + zeroRun
+        case .scientific:
+            return 1 + 1 + 1 + numDigits + 1 + 1 + exponentDigits
+        case .engineering:
+            return 1 + 3 + 1 + numDigits + 1 + 1 + exponentDigits
+        }
+    }
+
+    /// Number of base-10 digits needed to render `abs(value)` (minimum 1, matching `writeExponent`).
+    @usableFromInline
+    internal static func decimalDigitCount(_ value: Int) -> Int {
+        var count = 1
+        var remainder = value.magnitude / 10
+        while remainder > 0 {
+            count += 1
+            remainder /= 10
+        }
+        return count
     }
 }
