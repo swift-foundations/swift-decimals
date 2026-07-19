@@ -244,5 +244,37 @@ extension Decimal.Format32.Test {
             #expect(result.value == expected)
             #expect(result.status.contains(.inexact))
         }
+
+        // MARK: - Revision 5 Item 2 (swift-decimal-primitives pin bump,
+        // BID Form-2 decode)
+
+        @Test func `fuse does not corrupt a Form-2-encoded coefficient input via the swift-decimal-primitives BID Form-2 decode bug`() {
+            // swift-decimals' Package.resolved previously pinned
+            // `swift-decimal-primitives` at a commit that PREDATES that
+            // package's own `c729bec` fix ("BID Form-2 decode reads wrong
+            // exponent bits and misreads finite values as special").
+            // `fuse()` calls `extractCoefficient()`/`extractExponent()` on
+            // its OWN inputs internally (see
+            // `Decimal.Operation.Fuse.swift`, step 5) — so any Format32
+            // coefficient `>= 2^23` (8,388,608, the BID Form-1/Form-2
+            // boundary) was silently misdecoded before this revision's
+            // fuse()-level fix (or any of this file's own logic) even
+            // runs. `8665773 >= 2^23`, so it is BID Form-2 encoded; under
+            // the stale pin, decoding it internally misread the finite
+            // coefficient as a special value (the pre-bump probe observed
+            // `fuse(8665773e0, 1e0, 1e-1)` returning special/overflow
+            // instead of the finite value `8665773`). Adding a negligible
+            // z (0.1, seven orders of magnitude below the 7-digit
+            // precision boundary) should leave the result numerically
+            // unchanged.
+            let x = Decimal.Format32.encode(sign: .positive, exponent: Decimal.Exponent(0), coefficient: 8_665_773)
+            let y = Decimal.Format32.encode(sign: .positive, exponent: Decimal.Exponent(0), coefficient: 1)
+            let z = Decimal.Format32.encode(sign: .positive, exponent: Decimal.Exponent(-1), coefficient: 1)
+            let result = x.operation.fuse(y, z)
+            let expected = Decimal.Format32.encode(sign: .positive, exponent: Decimal.Exponent(0), coefficient: 8_665_773)
+            #expect(!result.value.test.nan)
+            #expect(!result.value.test.infinite)
+            #expect(result.value == expected)
+        }
     }
 }

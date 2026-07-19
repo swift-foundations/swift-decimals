@@ -2,7 +2,17 @@
 
 extension Decimal.Format64: ExpressibleByIntegerLiteral {
     public init(integerLiteral value: Int64) {
-        self.init(value)
+        // `swift-decimal-primitives`' `Decimal.Format64.init?(_ value: Int64)`
+        // became failable as part of that package's own F-004 fix (revision
+        // 5's Item 2 pin bump, `9545c17`): it now correctly rejects
+        // magnitudes that don't fit the format's 16-digit coefficient
+        // precision instead of silently truncating/corrupting them (the bug
+        // F-004 fixed). `ExpressibleByIntegerLiteral.init(integerLiteral:)`
+        // must be non-failable, so an out-of-range literal now traps here —
+        // strictly better than the prior silent corruption, and consistent
+        // with how out-of-range integer literals are handled elsewhere in
+        // Swift.
+        self.init(value)!
     }
 }
 
