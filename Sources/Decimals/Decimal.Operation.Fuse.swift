@@ -185,7 +185,32 @@ extension Decimal.Operation where Value == Decimal.Format64 {
             let digitsFar = Decimals.Rounding.digitCount(zCoeff)
             let digitsNear = Decimals.Rounding.digitCount(pCoeff)
             let threshold = context.precision.rawValue + digitsFar - digitsNear + 1
-            if diff.rawValue <= threshold {
+            // F-002/F-003 revision 4: the drop path below (diff beyond the
+            // threshold) folds the discarded `z` into the product's own
+            // rounding decision as `sticky: true` — which unconditionally
+            // models a POSITIVE tail. That is correct only when `z` shares
+            // the product's sign. For opposite-sign `z`, `sticky: true`
+            // still nudges the result UP when the true (discarded) tail
+            // pulls it DOWN — wrong at an exact round-half-even tie
+            // (regardless of how far away `z` sits), and also wrong on a
+            // "near tie" whenever `z`'s magnitude (bounded by `digitsFar`
+            // digits) is not yet provably below one part in the product's
+            // own least-significant digit. That negligibility only holds
+            // once `diff > digitsFar` (z's entire digit span sits below the
+            // product's own last digit — independent of `digitsNear`/
+            // `precision`); the pre-revision-4 `threshold` formula can be
+            // smaller than `digitsFar` whenever `digitsNear > precision + 1`
+            // (i.e. the UNROUNDED product itself needs internal rounding),
+            // which is exactly the regime `Fuse()`'s product coefficient can
+            // reach. `effectiveThreshold` widens the exact-vs-drop boundary
+            // to `max(threshold, digitsFar)` for opposite-sign `z` only —
+            // same-sign keeps the untouched `threshold` and untouched drop
+            // path below, bit-for-bit (see the soundness table in this
+            // revision's report for the full derivation and the same-sign
+            // residual risk this deliberately leaves out of scope).
+            let sameSign = productSign == z.sign
+            let effectiveThreshold = sameSign ? threshold : max(threshold, digitsFar)
+            if diff.rawValue <= effectiveThreshold {
                 let scaledP = Decimals.Wide.multiplied(Decimals.Wide(pCoeff), byPowerOf10: diff.rawValue)
                 let wideZ = Decimals.Wide(zCoeff)
                 let resultSign: Decimal.Sign
@@ -218,12 +243,70 @@ extension Decimal.Operation where Value == Decimal.Format64 {
                 }
                 return Decimal.Outcome(value: Value.encode(sign: resultSign, exponent: finalExp, coefficient: finalCoeff), status: status)
             }
-            // The product dominates z beyond the guard-digit window; round the
-            // (still full-precision, unrounded) product alone, folding the
-            // discarded z into the rounding decision as sticky.
+            if sameSign {
+                // The product dominates z beyond the guard-digit window; round
+                // the (still full-precision, unrounded) product alone, folding
+                // the discarded z into the rounding decision as sticky. Same-
+                // sign only: unconditionally correct (rev-3/rev-4 sticky-up
+                // argument), unchanged from prior revisions.
+                let (finalCoeff, finalExp, status) = Decimals.Rounding.round(
+                    coefficient: productCoeff,
+                    exponent: productExp,
+                    sign: productSign,
+                    rounding: context.rounding,
+                    precision: context.precision,
+                    sticky: true
+                )
+                if finalExp > context.maxExponent {
+                    return Decimal.Outcome(value: .infinity(sign: productSign), status: status.union(Decimal.Status.overflow).union(.inexact))
+                }
+                return Decimal.Outcome(value: Value.encode(sign: productSign, exponent: finalExp, coefficient: finalCoeff), status: status.union(.inexact))
+            }
+            // Opposite sign, beyond `effectiveThreshold`: `diff > digitsFar`
+            // is now guaranteed, so z's true magnitude is strictly less than
+            // one unit of the product's own least-significant digit.
+            //
+            // If `digitsNear <= precision` (the product already fits within
+            // the target precision, with slack to spare), NO rounding
+            // division happens at all — the fast path below returns
+            // `productCoeff` verbatim at its own exponent. There is then no
+            // tie to break (a tie can only occur mid-division), and the
+            // slack means the target rounding boundary sits at or below
+            // `productCoeff`'s own last digit, i.e. even further from z's
+            // position than the `diff > digitsFar` guarantee already
+            // requires — z cannot reach a single kept digit, sign or no
+            // sign. (This is also why the fold below MUST NOT run
+            // unconditionally here: subtracting a symbolic 1 from a guard
+            // digit that a fast-path return would never re-round away
+            // corrupts the coefficient by a spurious off-by-one — a defect
+            // found and fixed during this revision's own fuzzing; see the
+            // report.) This mirrors the same-sign fast path above exactly,
+            // module the tautological `sticky` used only for the `.inexact`
+            // status bit.
+            if digitsNear <= context.precision.rawValue {
+                if productExp > context.maxExponent {
+                    return Decimal.Outcome(value: .infinity(sign: productSign), status: Decimal.Status.overflow.union(.inexact))
+                }
+                return Decimal.Outcome(value: Value.encode(sign: productSign, exponent: productExp, coefficient: UInt64(productCoeff)), status: .inexact)
+            }
+            // Genuine rounding needed (`digitsNear > precision`): the target
+            // boundary sits strictly within `productCoeff`'s own digits, so
+            // it CAN land on an exact round-half-even tie — independent of
+            // z's magnitude, only its sign decides which way that tie
+            // breaks. Signed sticky fold: extend the product by one guard
+            // digit (×10; safe here, see the report's headroom table) and
+            // fold the opposite-sign, strictly-less-than-one-unit tail as
+            // exactly `-1` on that guard digit, then round once with
+            // `sticky: true` — since `digitsNear > precision` guarantees
+            // `digits(extended) > precision` too, this always takes the
+            // real rounding path below (never the fast path above), so the
+            // `-1` is always correctly re-absorbed. This reduces to
+            // "round(productCoeff - epsilon)" for the unknown true epsilon
+            // in (0, 1), correct for both the exact-tie and non-tie cases.
+            let extendedCoeff = productCoeff * 10 - 1
             let (finalCoeff, finalExp, status) = Decimals.Rounding.round(
-                coefficient: productCoeff,
-                exponent: productExp,
+                coefficient: extendedCoeff,
+                exponent: productExp - 1,
                 sign: productSign,
                 rounding: context.rounding,
                 precision: context.precision,
@@ -464,7 +547,14 @@ extension Decimal.Operation where Value == Decimal.Format32 {
             let digitsFar = Decimals.Rounding.digitCount(zCoeff)
             let digitsNear = Decimals.Rounding.digitCount(productCoeff)
             let threshold = context.precision.rawValue + digitsFar - digitsNear + 1
-            if diff.rawValue <= threshold {
+            // F-002/F-003 revision 4: see the Format64 branch above (and this
+            // revision's report) for the full derivation. `effectiveThreshold`
+            // widens the exact-vs-drop boundary to `max(threshold, digitsFar)`
+            // for opposite-sign z only; same-sign keeps `threshold` and the
+            // untouched drop path below, bit-for-bit.
+            let sameSign = productSign == z.sign
+            let effectiveThreshold = sameSign ? threshold : max(threshold, digitsFar)
+            if diff.rawValue <= effectiveThreshold {
                 let scaledP = Decimals.Wide.multiplied(Decimals.Wide(UInt128(productCoeff)), byPowerOf10: diff.rawValue)
                 let wideZ = Decimals.Wide(UInt128(zCoeff))
                 let resultSign: Decimal.Sign
@@ -497,12 +587,42 @@ extension Decimal.Operation where Value == Decimal.Format32 {
                 }
                 return Decimal.Outcome(value: Value.encode(sign: resultSign, exponent: finalExp, coefficient: finalCoeff), status: status)
             }
-            // The product dominates z beyond the guard-digit window; round the
-            // (still full-precision, unrounded) product alone, folding the
-            // discarded z into the rounding decision as sticky.
+            if sameSign {
+                // The product dominates z beyond the guard-digit window; round
+                // the (still full-precision, unrounded) product alone, folding
+                // the discarded z into the rounding decision as sticky. Same-
+                // sign only: unconditionally correct (rev-3/rev-4 sticky-up
+                // argument), unchanged from prior revisions.
+                let (finalCoeff, finalExp, status) = Decimals.Rounding.round(
+                    coefficient: productCoeff,
+                    exponent: productExp,
+                    sign: productSign,
+                    rounding: context.rounding,
+                    precision: context.precision,
+                    sticky: true
+                )
+                if finalExp > context.maxExponent {
+                    return Decimal.Outcome(value: .infinity(sign: productSign), status: status.union(Decimal.Status.overflow).union(.inexact))
+                }
+                return Decimal.Outcome(value: Value.encode(sign: productSign, exponent: finalExp, coefficient: finalCoeff), status: status.union(.inexact))
+            }
+            // Opposite sign, beyond `effectiveThreshold`: signed sticky fold
+            // (see the Format64 branch above and this revision's report for
+            // the full derivation, including the `digitsNear <= precision`
+            // fast-path guard, required so the `-1` is only ever applied
+            // where a real rounding division will re-absorb it).
+            // productCoeff <= 14 digits here, so ×10 (<= 15 digits) is
+            // safely within UInt64.
+            if digitsNear <= context.precision.rawValue {
+                if productExp > context.maxExponent {
+                    return Decimal.Outcome(value: .infinity(sign: productSign), status: Decimal.Status.overflow.union(.inexact))
+                }
+                return Decimal.Outcome(value: Value.encode(sign: productSign, exponent: productExp, coefficient: UInt32(productCoeff)), status: .inexact)
+            }
+            let extendedCoeff = productCoeff * 10 - 1
             let (finalCoeff, finalExp, status) = Decimals.Rounding.round(
-                coefficient: productCoeff,
-                exponent: productExp,
+                coefficient: extendedCoeff,
+                exponent: productExp - 1,
                 sign: productSign,
                 rounding: context.rounding,
                 precision: context.precision,
@@ -754,7 +874,19 @@ extension Decimal.Operation where Value == Decimal.Format128 {
             let digitsFar = Decimals.Rounding.digitCount(zCoeff)
             let digitsNear = Decimals.Rounding.digitCount(productCoeff)
             let threshold = context.precision.rawValue + digitsFar - digitsNear + 1
-            if diff.rawValue <= threshold {
+            // F-002/F-003 revision 4: see the Format64 branch's comment above
+            // (and this revision's report) for the full derivation.
+            // `effectiveThreshold` widens the exact-vs-drop boundary to
+            // `max(threshold, digitsFar)` for opposite-sign z only; same-sign
+            // keeps `threshold` and the untouched drop path below, bit-for-
+            // bit. Headroom: digitsNear <= 39, digitsFar <= 34, so the
+            // widened exact branch's worst-case scaled span is
+            // `digitsNear + digitsFar <= 73` digits — within the 74-digit
+            // worst case rev-3 already proved safe for `Decimals.Wide`'s
+            // 256-bit (~78-digit) capacity elsewhere in this file.
+            let sameSign = productSign == z.sign
+            let effectiveThreshold = sameSign ? threshold : max(threshold, digitsFar)
+            if diff.rawValue <= effectiveThreshold {
                 let scaledP = Decimals.Wide.multiplied(Decimals.Wide(productCoeff), byPowerOf10: diff.rawValue)
                 let wideZ = Decimals.Wide(zCoeff)
                 let resultSign: Decimal.Sign
@@ -787,12 +919,48 @@ extension Decimal.Operation where Value == Decimal.Format128 {
                 }
                 return Decimal.Outcome(value: Value.encode(sign: resultSign, exponent: finalExp, coefficient: finalCoeff), status: status)
             }
-            // The product dominates z beyond the guard-digit window; round the
-            // (still full-precision, unrounded) product alone, folding the
-            // discarded z into the rounding decision as sticky.
+            if sameSign {
+                // The product dominates z beyond the guard-digit window; round
+                // the (still full-precision, unrounded) product alone, folding
+                // the discarded z into the rounding decision as sticky. Same-
+                // sign only: unconditionally correct (rev-3/rev-4 sticky-up
+                // argument), unchanged from prior revisions.
+                let (finalCoeff, finalExp, status) = Decimals.Rounding.round128(
+                    coefficient: productCoeff,
+                    exponent: productExp,
+                    sign: productSign,
+                    rounding: context.rounding,
+                    precision: context.precision,
+                    sticky: true
+                )
+                if finalExp > context.maxExponent {
+                    return Decimal.Outcome(value: .infinity(sign: productSign), status: status.union(Decimal.Status.overflow).union(.inexact))
+                }
+                return Decimal.Outcome(value: Value.encode(sign: productSign, exponent: finalExp, coefficient: finalCoeff), status: status.union(.inexact))
+            }
+            // Opposite sign, beyond `effectiveThreshold`: signed sticky fold
+            // (see the Format64 branch above and this revision's report for
+            // the full derivation, including the `digitsNear <= precision`
+            // fast-path guard, required so the `-1` is only ever applied
+            // where a real rounding division will re-absorb it).
+            // productCoeff can carry up to 39 digits here (the unrounded
+            // product, per the checked `coeffX * coeffY` trap this file
+            // already relies on), so ×10 (up to 40 digits) can exceed
+            // UInt128's ~39-digit capacity — `Decimals.Wide` is used for the
+            // extension and reduced back with its own (harmless, always-
+            // OR'd into the unconditional `sticky: true` below) sticky bit
+            // before rounding.
+            if digitsNear <= context.precision.rawValue {
+                if productExp > context.maxExponent {
+                    return Decimal.Outcome(value: .infinity(sign: productSign), status: Decimal.Status.overflow.union(.inexact))
+                }
+                return Decimal.Outcome(value: Value.encode(sign: productSign, exponent: productExp, coefficient: productCoeff), status: .inexact)
+            }
+            let extendedWide = Decimals.Wide(productCoeff).multipliedBy10().subtracting(Decimals.Wide(UInt128(1)))
+            let (reducedCoeff, reduceShift, _) = extendedWide.reducedToFitUInt128()
             let (finalCoeff, finalExp, status) = Decimals.Rounding.round128(
-                coefficient: productCoeff,
-                exponent: productExp,
+                coefficient: reducedCoeff,
+                exponent: productExp - 1 + reduceShift,
                 sign: productSign,
                 rounding: context.rounding,
                 precision: context.precision,

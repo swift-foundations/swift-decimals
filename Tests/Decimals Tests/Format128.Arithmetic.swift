@@ -183,6 +183,58 @@ extension Decimal.Format128.Test {
             #expect(!result.status.contains(.inexact))
         }
 
+        // MARK: - F-002/F-003 revision 4 (product-dominates opposite-sign
+        // exact-tie sign drop, [INST-TEST-013])
+
+        @Test func `fuse rounds an exact tie in the product's own digits toward the correct side when z is opposite sign`() {
+            // Revision 3 fixed the off-by-one in the drop DECISION threshold.
+            // This is a DIFFERENT defect in the drop COMPUTATION: once the
+            // decision routes to the drop path, the code rounds the bare
+            // product with `sticky: true` unconditionally — which always
+            // nudges an exact round-half-even tie UP. That is correct only
+            // when the discarded z shares the product's sign; for
+            // opposite-sign z it silently rounds the WRONG way on an exact
+            // tie, at any distance, because z's sign (not magnitude) decides
+            // which side of the tie the true value actually falls on.
+            //
+            // x = 4000000000000000000000000000000001 (34 digits), y = 5:
+            // product = 20000000000000000000000000000000005 (35 digits) at
+            // exponent 0 — an EXACT round-half-even tie at Format128's
+            // 34-digit rounding boundary (dropped digit is exactly 5, kept
+            // quotient 2000000000000000000000000000000000 is even, so the
+            // pre-revision-4 code's `sticky: true` rounds it UP regardless).
+            // z = -1E-2 (digitsFar = 1), opposite sign. digitsNear =
+            // digitCount(35-digit product) = 35 > precision (34), which
+            // collapses the drop threshold to `34 + 1 - 35 + 1` = 1; the gap
+            // (2) exceeds it, landing in the drop path.
+            //
+            // True value: 20000000000000000000000000000000005 - 0.01 =
+            // 20000000000000000000000000000000004.99, which is strictly
+            // BELOW the tie (…004.99 < …005), so round-half-even rounds DOWN
+            // to the even quotient 2000000000000000000000000000000000 at
+            // exponent 1 — not UP to …001. Independently verified with
+            // Python `decimal` (prec=34, ROUND_HALF_EVEN):
+            // `Decimal('20000000000000000000000000000000005') + Decimal('-0.01')`
+            // rounded to 34 significant digits.
+            let x = Decimal.Format128.encode(
+                sign: .positive, exponent: Decimal.Exponent(0),
+                coefficient: 4_000_000_000_000_000_000_000_000_000_000_001
+            )
+            let y = Decimal.Format128.encode(sign: .positive, exponent: Decimal.Exponent(0), coefficient: 5)
+            let z = Decimal.Format128.encode(sign: .negative, exponent: Decimal.Exponent(-2), coefficient: 1)
+            let result = x.operation.fuse(y, z)
+            let wrongPreFix = Decimal.Format128.encode(
+                sign: .positive, exponent: Decimal.Exponent(1),
+                coefficient: 2_000_000_000_000_000_000_000_000_000_000_001
+            )
+            let expected = Decimal.Format128.encode(
+                sign: .positive, exponent: Decimal.Exponent(1),
+                coefficient: 2_000_000_000_000_000_000_000_000_000_000_000
+            )
+            #expect(result.value != wrongPreFix)
+            #expect(result.value == expected)
+        }
+
         // MARK: - F-002/F-003 revision 3 (opposite-sign borrow off-by-one)
 
         @Test func `addition does not drop a still-significant operand across an opposite-sign borrow through a power-of-ten leading digit`() {
