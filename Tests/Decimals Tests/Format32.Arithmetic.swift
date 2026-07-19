@@ -31,5 +31,25 @@ extension Decimal.Format32.Test {
             let result = x.operation.fuse(y, z)
             #expect(result.value == Decimal.Format32.encode(sign: .positive, exponent: Decimal.Exponent(0), coefficient: 1))
         }
+
+        // MARK: - Divide
+
+        @Test func `divide does not double-round an exact-looking tie that is actually above half`() {
+            // 1 / 56239, scaled for Format32's precision, produces a quotient whose
+            // last rounding-boundary digits look like an exact tie (5000 of 10000),
+            // but the raw division has a nonzero remainder (55000) beyond those
+            // digits — the true value is strictly above the tie point, not AT it.
+            // Under `.toward` rounding (ties toward zero; otherwise round toward
+            // zero), an exact tie truncates but a value strictly above half rounds
+            // away from zero. Without passing that "sticky" remainder through to the
+            // rounding kernel, this double-rounds to the wrong (truncated) result (F-003).
+            var context = Decimal.Context.format32
+            context.rounding = .toward
+            let a = Decimal.Format32.encode(sign: .positive, exponent: Decimal.Exponent(0), coefficient: 1)
+            let b = Decimal.Format32.encode(sign: .positive, exponent: Decimal.Exponent(0), coefficient: 56239)
+            let result = a.operation.divide(b, context: context)
+            let expected = Decimal.Format32.encode(sign: .positive, exponent: Decimal.Exponent(-11), coefficient: 1_778_126)
+            #expect(result.value == expected)
+        }
     }
 }

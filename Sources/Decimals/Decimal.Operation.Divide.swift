@@ -79,7 +79,11 @@ extension Decimal.Operation where Value == Decimal.Format32 {
 
         let resultExp = expA - expB
 
-        // 9. Round to precision
+        // 9. Round to precision. `remainder` (the raw division remainder beyond the
+        // guard digits retained in `quotient`) is passed through as `sticky`: it
+        // tells the rounding kernel the quotient was already truncated once, so an
+        // apparent exact tie at the rounding boundary is actually slightly more
+        // than half — without this, ties could be double-rounded incorrectly (F-003).
         var status: Decimal.Status = .none
         if remainder != 0 {
             status = .inexact
@@ -90,7 +94,8 @@ extension Decimal.Operation where Value == Decimal.Format32 {
             exponent: resultExp,
             sign: resultSign,
             rounding: context.rounding,
-            precision: context.precision
+            precision: context.precision,
+            sticky: remainder != 0
         )
         status = status.union(roundStatus)
 
@@ -206,7 +211,11 @@ extension Decimal.Operation where Value == Decimal.Format64 {
         // Calculate result exponent
         let resultExp = expA - expB
 
-        // 9. Round to precision
+        // 9. Round to precision. `remainder` (the raw division remainder beyond the
+        // guard digits retained in `quotient`) is passed through as `sticky`: it
+        // tells the rounding kernel the quotient was already truncated once, so an
+        // apparent exact tie at the rounding boundary is actually slightly more
+        // than half — without this, ties could be double-rounded incorrectly (F-003).
         var status: Decimal.Status = .none
         if remainder != 0 {
             status = .inexact
@@ -217,7 +226,8 @@ extension Decimal.Operation where Value == Decimal.Format64 {
             exponent: resultExp,
             sign: resultSign,
             rounding: context.rounding,
-            precision: context.precision
+            precision: context.precision,
+            sticky: remainder != 0
         )
         status = status.union(roundStatus)
 
@@ -325,7 +335,11 @@ extension Decimal.Operation where Value == Decimal.Format128 {
 
         let resultExp = expA - expB
 
-        // 9. Round to precision
+        // 9. Round to precision. `remainder` (the raw division remainder beyond the
+        // guard digits retained in `quotient`) is passed through as `sticky`: it
+        // tells the rounding kernel the quotient was already truncated once, so an
+        // apparent exact tie at the rounding boundary is actually slightly more
+        // than half — without this, ties could be double-rounded incorrectly (F-003).
         var status: Decimal.Status = .none
         if remainder != 0 {
             status = .inexact
@@ -336,7 +350,8 @@ extension Decimal.Operation where Value == Decimal.Format128 {
             exponent: resultExp,
             sign: resultSign,
             rounding: context.rounding,
-            precision: context.precision
+            precision: context.precision,
+            sticky: remainder != 0
         )
         status = status.union(roundStatus)
 

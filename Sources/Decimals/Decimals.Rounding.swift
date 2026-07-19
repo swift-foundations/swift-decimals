@@ -17,13 +17,20 @@ extension Decimals.Rounding {
     ///   - sign: The sign of the value
     ///   - mode: The rounding mode to apply
     ///   - precision: The target precision
+    ///   - sticky: True if the caller already discarded nonzero, lower-order
+    ///     information before computing `coefficient` (e.g. a division remainder
+    ///     beyond the guard digits retained in the quotient). When true, an exact
+    ///     tie at the rounding boundary is known to actually be slightly more than
+    ///     half, which avoids double-rounding a value that was already truncated
+    ///     once by the caller.
     /// - Returns: Tuple of (rounded coefficient, adjusted exponent, status flags)
     public static func round(
         coefficient: UInt64,
         exponent: Decimal.Exponent,
         sign: Decimal.Sign,
         rounding: Decimal.Rounding,
-        precision: Decimal.Precision
+        precision: Decimal.Precision,
+        sticky: Bool = false
     ) -> (coefficient: UInt32, exponent: Decimal.Exponent, status: Decimal.Status) {
         let c = coefficient
         var e = exponent
@@ -37,9 +44,10 @@ extension Decimals.Rounding {
             temp /= 10
         }
 
-        // If coefficient fits in precision, no rounding needed
+        // If coefficient fits in precision, no rounding needed — but a sticky
+        // (already-discarded) remainder still makes the result inexact.
         if digits <= precision.rawValue {
-            return (UInt32(truncatingIfNeeded: c), e, status)
+            return (UInt32(truncatingIfNeeded: c), e, sticky ? .inexact : status)
         }
 
         // Need to round off (digits - precision) digits
@@ -55,27 +63,34 @@ extension Decimals.Rounding {
         let remainder = c % divisor
         let halfDivisor = divisor / 2
 
+        // A sticky remainder means the true (pre-truncation) value is strictly
+        // greater than what `remainder` alone shows, so it can never be an exact
+        // tie and any zero remainder is actually still a positive one.
+        let remainderPositive = remainder > 0 || sticky
+        let isAboveHalf = remainder > halfDivisor || (sticky && remainder == halfDivisor)
+        let isExactHalf = remainder == halfDivisor && !sticky
+
         // Determine if we need to round up
         var roundUp = false
         switch rounding {
         case .ceiling:
-            roundUp = remainder > 0 && sign == .positive
+            roundUp = remainderPositive && sign == .positive
         case .floor:
-            roundUp = remainder > 0 && sign == .negative
+            roundUp = remainderPositive && sign == .negative
         case .down:
             roundUp = false
         case .up:
-            roundUp = remainder > 0
+            roundUp = remainderPositive
         case .even:
-            if remainder > halfDivisor {
+            if isAboveHalf {
                 roundUp = true
-            } else if remainder == halfDivisor {
+            } else if isExactHalf {
                 roundUp = (quotient % 2) != 0
             }
         case .away:
-            roundUp = remainder >= halfDivisor
+            roundUp = isAboveHalf || isExactHalf
         case .toward:
-            roundUp = remainder > halfDivisor
+            roundUp = isAboveHalf
         }
 
         var result = quotient
@@ -83,7 +98,7 @@ extension Decimals.Rounding {
             result += 1
         }
 
-        if remainder > 0 {
+        if remainderPositive {
             status = .inexact
         }
 
@@ -103,12 +118,16 @@ extension Decimals.Rounding {
     }
 
     /// Round a Format64 coefficient to fit in the specified precision
+    ///
+    /// - Parameter sticky: See the Format32 `round(coefficient:exponent:sign:rounding:precision:sticky:)`
+    ///   overload's documentation.
     public static func round(
         coefficient: UInt128,
         exponent: Decimal.Exponent,
         sign: Decimal.Sign,
         rounding: Decimal.Rounding,
-        precision: Decimal.Precision
+        precision: Decimal.Precision,
+        sticky: Bool = false
     ) -> (coefficient: UInt64, exponent: Decimal.Exponent, status: Decimal.Status) {
         let c = coefficient
         var e = exponent
@@ -122,9 +141,10 @@ extension Decimals.Rounding {
             temp /= 10
         }
 
-        // If coefficient fits in precision, no rounding needed
+        // If coefficient fits in precision, no rounding needed — but a sticky
+        // (already-discarded) remainder still makes the result inexact.
         if digits <= precision.rawValue {
-            return (UInt64(truncatingIfNeeded: c), e, status)
+            return (UInt64(truncatingIfNeeded: c), e, sticky ? .inexact : status)
         }
 
         // Need to round off (digits - precision) digits
@@ -140,27 +160,34 @@ extension Decimals.Rounding {
         let remainder = c % divisor
         let halfDivisor = divisor / 2
 
+        // A sticky remainder means the true (pre-truncation) value is strictly
+        // greater than what `remainder` alone shows, so it can never be an exact
+        // tie and any zero remainder is actually still a positive one.
+        let remainderPositive = remainder > 0 || sticky
+        let isAboveHalf = remainder > halfDivisor || (sticky && remainder == halfDivisor)
+        let isExactHalf = remainder == halfDivisor && !sticky
+
         // Determine if we need to round up
         var roundUp = false
         switch rounding {
         case .ceiling:
-            roundUp = remainder > 0 && sign == .positive
+            roundUp = remainderPositive && sign == .positive
         case .floor:
-            roundUp = remainder > 0 && sign == .negative
+            roundUp = remainderPositive && sign == .negative
         case .down:
             roundUp = false
         case .up:
-            roundUp = remainder > 0
+            roundUp = remainderPositive
         case .even:
-            if remainder > halfDivisor {
+            if isAboveHalf {
                 roundUp = true
-            } else if remainder == halfDivisor {
+            } else if isExactHalf {
                 roundUp = (quotient % 2) != 0
             }
         case .away:
-            roundUp = remainder >= halfDivisor
+            roundUp = isAboveHalf || isExactHalf
         case .toward:
-            roundUp = remainder > halfDivisor
+            roundUp = isAboveHalf
         }
 
         var result = quotient
@@ -168,7 +195,7 @@ extension Decimals.Rounding {
             result += 1
         }
 
-        if remainder > 0 {
+        if remainderPositive {
             status = .inexact
         }
 
@@ -188,12 +215,16 @@ extension Decimals.Rounding {
     }
 
     /// Round a Format128 coefficient to fit in the specified precision
+    ///
+    /// - Parameter sticky: See the Format32 `round(coefficient:exponent:sign:rounding:precision:sticky:)`
+    ///   overload's documentation.
     public static func round128(
         coefficient: UInt128,
         exponent: Decimal.Exponent,
         sign: Decimal.Sign,
         rounding: Decimal.Rounding,
-        precision: Decimal.Precision
+        precision: Decimal.Precision,
+        sticky: Bool = false
     ) -> (coefficient: UInt128, exponent: Decimal.Exponent, status: Decimal.Status) {
         let c = coefficient
         var e = exponent
@@ -207,9 +238,10 @@ extension Decimals.Rounding {
             temp /= 10
         }
 
-        // If coefficient fits in precision, no rounding needed
+        // If coefficient fits in precision, no rounding needed — but a sticky
+        // (already-discarded) remainder still makes the result inexact.
         if digits <= precision.rawValue {
-            return (c, e, status)
+            return (c, e, sticky ? .inexact : status)
         }
 
         // Need to round off (digits - precision) digits
@@ -225,27 +257,34 @@ extension Decimals.Rounding {
         let remainder = c % divisor
         let halfDivisor = divisor / 2
 
+        // A sticky remainder means the true (pre-truncation) value is strictly
+        // greater than what `remainder` alone shows, so it can never be an exact
+        // tie and any zero remainder is actually still a positive one.
+        let remainderPositive = remainder > 0 || sticky
+        let isAboveHalf = remainder > halfDivisor || (sticky && remainder == halfDivisor)
+        let isExactHalf = remainder == halfDivisor && !sticky
+
         // Determine if we need to round up
         var roundUp = false
         switch rounding {
         case .ceiling:
-            roundUp = remainder > 0 && sign == .positive
+            roundUp = remainderPositive && sign == .positive
         case .floor:
-            roundUp = remainder > 0 && sign == .negative
+            roundUp = remainderPositive && sign == .negative
         case .down:
             roundUp = false
         case .up:
-            roundUp = remainder > 0
+            roundUp = remainderPositive
         case .even:
-            if remainder > halfDivisor {
+            if isAboveHalf {
                 roundUp = true
-            } else if remainder == halfDivisor {
+            } else if isExactHalf {
                 roundUp = (quotient % 2) != 0
             }
         case .away:
-            roundUp = remainder >= halfDivisor
+            roundUp = isAboveHalf || isExactHalf
         case .toward:
-            roundUp = remainder > halfDivisor
+            roundUp = isAboveHalf
         }
 
         var result = quotient
@@ -253,7 +292,7 @@ extension Decimals.Rounding {
             result += 1
         }
 
-        if remainder > 0 {
+        if remainderPositive {
             status = .inexact
         }
 
