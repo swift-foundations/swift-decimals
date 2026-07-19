@@ -147,3 +147,20 @@ extension Decimal.Format64 {
         }
     }
 }
+
+extension Decimal.Format64.Test {
+    @Suite struct `Edge Case` {
+
+        // MARK: - Addition
+
+        @Test func `addition does not overflow coefficient scaling at large exponent difference`() {
+            // exponent difference of 38 matches the old fixed threshold
+            // (`diff.rawValue > 38`) in Add.swift; scaling a ~16-digit coefficient by
+            // 10^38 overflows UInt128 partway through the naive multiply loop (F-002).
+            let a = Decimal.Format64.encode(sign: .positive, exponent: Decimal.Exponent(0), coefficient: 9_007_199_254_740_991)
+            let b = Decimal.Format64.encode(sign: .positive, exponent: Decimal.Exponent(-38), coefficient: 1)
+            let result = a.operation.add(b)
+            #expect(!result.value.test.nan)
+        }
+    }
+}

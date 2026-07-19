@@ -52,24 +52,43 @@ extension Decimal.Operation where Value == Decimal.Format32 {
         var expA = a.extractExponent()
         var expB = b.extractExponent()
 
-        // 5. Align exponents
+        // 5. Align exponents by scaling the operand with the larger exponent up by
+        // 10^diff to match the smaller exponent's scale. `diff` can be large (the
+        // format's exponent range spans hundreds of decades), so scaling must stop
+        // the instant it would overflow the working integer type rather than
+        // trusting a fixed decade-count cutoff — the old `diff.rawValue > 20` bound
+        // let scaling run past UInt64's ~19-20 digit capacity and trap on legal
+        // finite inputs (F-002). Once alignment isn't feasible in the working type,
+        // the other operand is too small to affect the correctly-rounded result.
         if expA < expB {
             let diff = expB - expA
-            if diff.rawValue > 20 {
-                return Decimal.Outcome(value: b, status: .none)
+            var scaled = coeffB
+            var shifted = 0
+            while shifted < diff.rawValue {
+                let (next, overflow) = scaled.multipliedReportingOverflow(by: 10)
+                if overflow { break }
+                scaled = next
+                shifted += 1
             }
-            for _ in 0..<diff.rawValue {
-                coeffB *= 10
+            if shifted < diff.rawValue {
+                return Decimal.Outcome(value: b, status: .inexact)
             }
+            coeffB = scaled
             expB = expA
         } else if expB < expA {
             let diff = expA - expB
-            if diff.rawValue > 20 {
-                return Decimal.Outcome(value: a, status: .none)
+            var scaled = coeffA
+            var shifted = 0
+            while shifted < diff.rawValue {
+                let (next, overflow) = scaled.multipliedReportingOverflow(by: 10)
+                if overflow { break }
+                scaled = next
+                shifted += 1
             }
-            for _ in 0..<diff.rawValue {
-                coeffA *= 10
+            if shifted < diff.rawValue {
+                return Decimal.Outcome(value: a, status: .inexact)
             }
+            coeffA = scaled
             expA = expB
         }
 
@@ -179,26 +198,45 @@ extension Decimal.Operation where Value == Decimal.Format64 {
         var expA = a.extractExponent()
         var expB = b.extractExponent()
 
-        // 5. Align exponents (scale smaller exponent up)
+        // 5. Align exponents by scaling the operand with the larger exponent up by
+        // 10^diff to match the smaller exponent's scale. `diff` can be large (the
+        // format's exponent range spans hundreds of decades), so scaling must stop
+        // the instant it would overflow the working integer type rather than
+        // trusting a fixed decade-count cutoff — the old `diff.rawValue > 38` bound
+        // let scaling run past UInt128's ~38-39 digit capacity and trap on legal
+        // finite inputs (F-002). Once alignment isn't feasible in the working type,
+        // the other operand is too small to affect the correctly-rounded result.
         if expA < expB {
             let diff = expB - expA
-            if diff.rawValue > 38 {
+            var scaled = coeffB
+            var shifted = 0
+            while shifted < diff.rawValue {
+                let (next, overflow) = scaled.multipliedReportingOverflow(by: 10)
+                if overflow { break }
+                scaled = next
+                shifted += 1
+            }
+            if shifted < diff.rawValue {
                 // B is so much larger that A is negligible
-                return Decimal.Outcome(value: b, status: .none)
+                return Decimal.Outcome(value: b, status: .inexact)
             }
-            for _ in 0..<diff.rawValue {
-                coeffB *= 10
-            }
+            coeffB = scaled
             expB = expA
         } else if expB < expA {
             let diff = expA - expB
-            if diff.rawValue > 38 {
+            var scaled = coeffA
+            var shifted = 0
+            while shifted < diff.rawValue {
+                let (next, overflow) = scaled.multipliedReportingOverflow(by: 10)
+                if overflow { break }
+                scaled = next
+                shifted += 1
+            }
+            if shifted < diff.rawValue {
                 // A is so much larger that B is negligible
-                return Decimal.Outcome(value: a, status: .none)
+                return Decimal.Outcome(value: a, status: .inexact)
             }
-            for _ in 0..<diff.rawValue {
-                coeffA *= 10
-            }
+            coeffA = scaled
             expA = expB
         }
 
@@ -308,24 +346,43 @@ extension Decimal.Operation where Value == Decimal.Format128 {
         var expA = a.extractExponent()
         var expB = b.extractExponent()
 
-        // 5. Align exponents
+        // 5. Align exponents by scaling the operand with the larger exponent up by
+        // 10^diff to match the smaller exponent's scale. `diff` can be large (the
+        // format's exponent range spans hundreds of decades), so scaling must stop
+        // the instant it would overflow the working integer type rather than
+        // trusting a fixed decade-count cutoff — the old `diff.rawValue > 70` bound
+        // let scaling run past UInt128's ~38-39 digit capacity and trap on legal
+        // finite inputs (F-002). Once alignment isn't feasible in the working type,
+        // the other operand is too small to affect the correctly-rounded result.
         if expA < expB {
             let diff = expB - expA
-            if diff.rawValue > 70 {
-                return Decimal.Outcome(value: b, status: .none)
+            var scaled = coeffB
+            var shifted = 0
+            while shifted < diff.rawValue {
+                let (next, overflow) = scaled.multipliedReportingOverflow(by: 10)
+                if overflow { break }
+                scaled = next
+                shifted += 1
             }
-            for _ in 0..<diff.rawValue {
-                coeffB *= 10
+            if shifted < diff.rawValue {
+                return Decimal.Outcome(value: b, status: .inexact)
             }
+            coeffB = scaled
             expB = expA
         } else if expB < expA {
             let diff = expA - expB
-            if diff.rawValue > 70 {
-                return Decimal.Outcome(value: a, status: .none)
+            var scaled = coeffA
+            var shifted = 0
+            while shifted < diff.rawValue {
+                let (next, overflow) = scaled.multipliedReportingOverflow(by: 10)
+                if overflow { break }
+                scaled = next
+                shifted += 1
             }
-            for _ in 0..<diff.rawValue {
-                coeffA *= 10
+            if shifted < diff.rawValue {
+                return Decimal.Outcome(value: a, status: .inexact)
             }
+            coeffA = scaled
             expA = expB
         }
 
