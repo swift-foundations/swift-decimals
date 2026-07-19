@@ -253,5 +253,44 @@ extension Decimal.Format64.Test {
             #expect(result.value == expected)
             #expect(!result.status.contains(.inexact))
         }
+
+        // MARK: - F-002/F-003 revision 3 (opposite-sign borrow off-by-one)
+
+        @Test func `fuse does not drop a still-significant addend across an opposite-sign borrow when the product is a power of ten`() {
+            // Same off-by-one argument as the Format128 case (see
+            // Format128.Arithmetic.swift's revision 3 tests for the full
+            // borrow-cascade derivation): x = 1E17, y = 1E0, so the unrounded
+            // product is exactly 1 (digitsNear = 1) at exponent 17 — a power
+            // of ten, the dominant operand the drop path would otherwise
+            // return bare. z = -6 at exponent 0 (digitsFar = 1, opposite sign
+            // from the product). The old (revision 2) threshold is
+            // `16 + 1 - 1` = 16; the gap (17) exceeds it by exactly one, so
+            // revision 2 still drops z and returns bare product = 1E17. The
+            // true value 1E17 - 6 = 99999999999999994 (17 digits) rounds
+            // (round-half-even, dropped digit 4 < 5, round down) to the
+            // 16-digit 9999999999999999E1 = 1E17 - 10 — not bare product.
+            // Expected value verified by independent bignum arithmetic
+            // (Python: `Decimal('1e17') + Decimal(-6)`, rounded to 16
+            // significant digits), not by the implementation under test. No
+            // coefficient here has leading digit 8 or 9 as an INPUT operand
+            // (only the expected OUTPUT coefficient does), so this does not
+            // hit the KNOWN INTERACTION BID Form-2 decode bug documented
+            // above: `Decimal.Format64` is `Hashable`/`Equatable` over its raw
+            // `bits` storage, and both `result.value` and `expected` are
+            // produced by the same deterministic `encode(sign:exponent:
+            // coefficient:)` — the comparison never calls `extractExponent`/
+            // `extractCoefficient` (the buggy decode path) on either side.
+            let x = Decimal.Format64.encode(sign: .positive, exponent: Decimal.Exponent(17), coefficient: 1)
+            let y = Decimal.Format64.encode(sign: .positive, exponent: Decimal.Exponent(0), coefficient: 1)
+            let z = Decimal.Format64.encode(sign: .negative, exponent: Decimal.Exponent(0), coefficient: 6)
+            let result = x.operation.fuse(y, z)
+            let expected = Decimal.Format64.encode(
+                sign: .positive, exponent: Decimal.Exponent(1),
+                coefficient: 9_999_999_999_999_999
+            )
+            #expect(result.value != x)
+            #expect(result.value == expected)
+            #expect(result.status.contains(.inexact))
+        }
     }
 }

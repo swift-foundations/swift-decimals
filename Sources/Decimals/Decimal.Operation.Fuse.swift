@@ -132,7 +132,7 @@ extension Decimal.Operation where Value == Decimal.Format64 {
             let diff = zExp - pExp
             let digitsFar = Decimals.Rounding.digitCount(pCoeff)
             let digitsNear = Decimals.Rounding.digitCount(zCoeff)
-            let threshold = context.precision.rawValue + digitsFar - digitsNear
+            let threshold = context.precision.rawValue + digitsFar - digitsNear + 1
             if diff.rawValue <= threshold {
                 let scaledZ = Decimals.Wide.multiplied(Decimals.Wide(zCoeff), byPowerOf10: diff.rawValue)
                 let wideP = Decimals.Wide(pCoeff)
@@ -184,7 +184,7 @@ extension Decimal.Operation where Value == Decimal.Format64 {
             let diff = pExp - zExp
             let digitsFar = Decimals.Rounding.digitCount(zCoeff)
             let digitsNear = Decimals.Rounding.digitCount(pCoeff)
-            let threshold = context.precision.rawValue + digitsFar - digitsNear
+            let threshold = context.precision.rawValue + digitsFar - digitsNear + 1
             if diff.rawValue <= threshold {
                 let scaledP = Decimals.Wide.multiplied(Decimals.Wide(pCoeff), byPowerOf10: diff.rawValue)
                 let wideZ = Decimals.Wide(zCoeff)
@@ -411,7 +411,7 @@ extension Decimal.Operation where Value == Decimal.Format32 {
             let diff = zExp - productExp
             let digitsFar = Decimals.Rounding.digitCount(productCoeff)
             let digitsNear = Decimals.Rounding.digitCount(zCoeff)
-            let threshold = context.precision.rawValue + digitsFar - digitsNear
+            let threshold = context.precision.rawValue + digitsFar - digitsNear + 1
             if diff.rawValue <= threshold {
                 let scaledZ = Decimals.Wide.multiplied(Decimals.Wide(UInt128(zCoeff)), byPowerOf10: diff.rawValue)
                 let wideP = Decimals.Wide(UInt128(productCoeff))
@@ -463,7 +463,7 @@ extension Decimal.Operation where Value == Decimal.Format32 {
             let diff = productExp - zExp
             let digitsFar = Decimals.Rounding.digitCount(zCoeff)
             let digitsNear = Decimals.Rounding.digitCount(productCoeff)
-            let threshold = context.precision.rawValue + digitsFar - digitsNear
+            let threshold = context.precision.rawValue + digitsFar - digitsNear + 1
             if diff.rawValue <= threshold {
                 let scaledP = Decimals.Wide.multiplied(Decimals.Wide(UInt128(productCoeff)), byPowerOf10: diff.rawValue)
                 let wideZ = Decimals.Wide(UInt128(zCoeff))
@@ -701,7 +701,7 @@ extension Decimal.Operation where Value == Decimal.Format128 {
             let diff = zExp - productExp
             let digitsFar = Decimals.Rounding.digitCount(productCoeff)
             let digitsNear = Decimals.Rounding.digitCount(zCoeff)
-            let threshold = context.precision.rawValue + digitsFar - digitsNear
+            let threshold = context.precision.rawValue + digitsFar - digitsNear + 1
             if diff.rawValue <= threshold {
                 let scaledZ = Decimals.Wide.multiplied(Decimals.Wide(zCoeff), byPowerOf10: diff.rawValue)
                 let wideP = Decimals.Wide(productCoeff)
@@ -753,7 +753,7 @@ extension Decimal.Operation where Value == Decimal.Format128 {
             let diff = productExp - zExp
             let digitsFar = Decimals.Rounding.digitCount(zCoeff)
             let digitsNear = Decimals.Rounding.digitCount(productCoeff)
-            let threshold = context.precision.rawValue + digitsFar - digitsNear
+            let threshold = context.precision.rawValue + digitsFar - digitsNear + 1
             if diff.rawValue <= threshold {
                 let scaledP = Decimals.Wide.multiplied(Decimals.Wide(productCoeff), byPowerOf10: diff.rawValue)
                 let wideZ = Decimals.Wide(zCoeff)

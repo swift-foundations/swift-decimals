@@ -182,5 +182,115 @@ extension Decimal.Format128.Test {
             #expect(result.value == expected)
             #expect(!result.status.contains(.inexact))
         }
+
+        // MARK: - F-002/F-003 revision 3 (opposite-sign borrow off-by-one)
+
+        @Test func `addition does not drop a still-significant operand across an opposite-sign borrow through a power-of-ten leading digit`() {
+            // Revision 2's digit-position-aware threshold (`diff > digits(far) -
+            // digits(near) + precision`) is sound for SAME-sign addition, but
+            // off by one for OPPOSITE-sign addition (effective subtraction)
+            // when the dominant (near) operand's coefficient is a power of ten
+            // (here, exactly `1`): subtracting even a single-digit far operand
+            // borrows through the near operand's leading digit, which is `1`
+            // and so vanishes entirely rather than decrementing to a nonzero
+            // digit — shifting the true result's most-significant-digit
+            // position down by exactly one decade relative to what the
+            // digit-count-only formula assumes. B = 1 at exponent 35
+            // (digitsNear = 1), A = -6 at exponent 0 (digitsFar = 1); the old
+            // (revision 2) threshold is `34 + 1 - 1` = 34, and the gap (35)
+            // exceeds it by exactly one, so revision 2 still takes the drop
+            // branch and returns bare B = 1E35. The true difference
+            // 1E35 - 6 = 99999999999999999999999999999999994 (35 digits)
+            // rounds (round-half-even, dropped digit 4 < 5, round down) to the
+            // 34-digit 9999999999999999999999999999999999E1 = 1E35 - 10 — not
+            // bare B. Expected value verified by independent bignum arithmetic
+            // (Python: `Decimal(-6) + Decimal('1e35')`, rounded to 34
+            // significant digits), not by the implementation under test.
+            let a = Decimal.Format128.encode(sign: .negative, exponent: Decimal.Exponent(0), coefficient: 6)
+            let b = Decimal.Format128.encode(sign: .positive, exponent: Decimal.Exponent(35), coefficient: 1)
+            let result = a.operation.add(b)
+            let expected = Decimal.Format128.encode(
+                sign: .positive, exponent: Decimal.Exponent(1),
+                coefficient: 9_999_999_999_999_999_999_999_999_999_999_999
+            )
+            #expect(result.value != b)
+            #expect(result.value == expected)
+            #expect(result.status.contains(.inexact))
+        }
+
+        @Test func `fuse does not drop a still-significant addend across an opposite-sign borrow when the product is a power of ten`() {
+            // Same borrow-cascade argument as the addition case immediately
+            // above, generalized to fuse(): x = 1E35, y = 1E0, so the
+            // unrounded product is exactly 1 (digitsNear = 1) at exponent 35 —
+            // a power of ten, the dominant operand the drop path would
+            // otherwise return bare. z = -6 at exponent 0 (digitsFar = 1,
+            // opposite sign from the product). The old (revision 2) threshold
+            // is `34 + 1 - 1` = 34; the gap (35) exceeds it by exactly one, so
+            // revision 2 still drops z and returns bare product = 1E35. The
+            // true value, 1E35 - 6, rounds to the same
+            // 9999999999999999999999999999999999E1 as the addition case above.
+            // Expected value verified by independent bignum arithmetic
+            // (Python).
+            let x = Decimal.Format128.encode(sign: .positive, exponent: Decimal.Exponent(35), coefficient: 1)
+            let y = Decimal.Format128.encode(sign: .positive, exponent: Decimal.Exponent(0), coefficient: 1)
+            let z = Decimal.Format128.encode(sign: .negative, exponent: Decimal.Exponent(0), coefficient: 6)
+            let result = x.operation.fuse(y, z)
+            let expected = Decimal.Format128.encode(
+                sign: .positive, exponent: Decimal.Exponent(1),
+                coefficient: 9_999_999_999_999_999_999_999_999_999_999_999
+            )
+            #expect(result.value != x)
+            #expect(result.value == expected)
+            #expect(result.status.contains(.inexact))
+        }
+
+        @Test func `fuse computes the exact sum without trapping at the new threshold's worst-case 74-digit Wide span`() {
+            // Overflow-headroom check (revision 3 step 3): widening the
+            // exact-vs-drop threshold by one digit widens the worst-case
+            // `Decimals.Wide` span this exact branch can be asked to hold. The
+            // "z dominates the product" branch (`productExp < zExp`) scales z
+            // (the near operand) up by `10^diff`, so its span is
+            // `digits(near=z) + diff`. At the new threshold boundary
+            // (`diff == precision + digits(far=product) - digits(near=z) + 1`)
+            // with `digits(near=z)` at its minimum (1) and `digits(far=product)`
+            // at its practical maximum (the unrounded product's own checked
+            // `coeffX * coeffY` multiplication traps before it can exceed
+            // UInt128's ~39-digit capacity), the span is
+            // `1 + (34 + 39 - 1 + 1)` = 74 digits — up from revision 2's 73,
+            // still comfortably inside `Decimals.Wide`'s 256-bit (~78-digit)
+            // capacity.
+            //
+            // x = 9999999999999999999999999999999999 (34 nines, Format128's
+            // own coefficient max) and y = 34028 are chosen so the unrounded
+            // product (x * y = 340279999999999999999999999999999965972, 39
+            // digits) is as large as possible without its own checked
+            // multiplication trapping. z = -1 at exponent 73 puts the gap
+            // (`73 - 0`) exactly on the new threshold boundary (`34 + 39 - 1 +
+            // 1` = 73) — the tightest gap that must still be computed exactly
+            // rather than dropped, and the one that produces the worst-case
+            // 74-digit span above. The assertion is twofold: this call must
+            // not trap (a widened window that overflowed `Decimals.Wide`
+            // would crash the process, not fail an assertion), and the
+            // rounded result must be the correctly-rounded 34-digit value —
+            // not the drop path's bare (non-canonicalized) z, which is a
+            // different bit pattern despite representing the same real number
+            // here. Expected value verified by independent bignum arithmetic
+            // (Python), replicating this file's exact `Decimals.Wide`
+            // reduction and `round128` algorithm step by step.
+            let x = Decimal.Format128.encode(
+                sign: .positive, exponent: Decimal.Exponent(0),
+                coefficient: 9_999_999_999_999_999_999_999_999_999_999_999
+            )
+            let y = Decimal.Format128.encode(sign: .positive, exponent: Decimal.Exponent(0), coefficient: 34_028)
+            let z = Decimal.Format128.encode(sign: .negative, exponent: Decimal.Exponent(73), coefficient: 1)
+            let result = x.operation.fuse(y, z)
+            let expected = Decimal.Format128.encode(
+                sign: .negative, exponent: Decimal.Exponent(40),
+                coefficient: 1_000_000_000_000_000_000_000_000_000_000_000
+            )
+            #expect(result.value != z)
+            #expect(result.value == expected)
+            #expect(result.status.contains(.inexact))
+        }
     }
 }

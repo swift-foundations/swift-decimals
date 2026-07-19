@@ -407,7 +407,7 @@ extension Decimal.Operation where Value == Decimal.Format128 {
             let diff = expB - expA
             let digitsFar = Decimals.Rounding.digitCount(coeffA)
             let digitsNear = Decimals.Rounding.digitCount(coeffB)
-            let threshold = context.precision.rawValue + digitsFar - digitsNear
+            let threshold = context.precision.rawValue + digitsFar - digitsNear + 1
             if diff.rawValue <= threshold {
                 let scaledB = Decimals.Wide.multiplied(Decimals.Wide(coeffB), byPowerOf10: diff.rawValue)
                 let wideA = Decimals.Wide(coeffA)
@@ -457,7 +457,7 @@ extension Decimal.Operation where Value == Decimal.Format128 {
             let diff = expA - expB
             let digitsFar = Decimals.Rounding.digitCount(coeffB)
             let digitsNear = Decimals.Rounding.digitCount(coeffA)
-            let threshold = context.precision.rawValue + digitsFar - digitsNear
+            let threshold = context.precision.rawValue + digitsFar - digitsNear + 1
             if diff.rawValue <= threshold {
                 let scaledA = Decimals.Wide.multiplied(Decimals.Wide(coeffA), byPowerOf10: diff.rawValue)
                 let wideB = Decimals.Wide(coeffB)
