@@ -90,23 +90,56 @@ extension Decimal.Operation where Value == Decimal.Format64 {
         var zCoeff = UInt128(z.extractCoefficient())
         var zExp = z.extractExponent()
 
-        // Align exponents
+        // Align exponents by scaling the operand with the larger exponent up by
+        // 10^diff, stopping the instant a multiplication would overflow rather
+        // than trusting a fixed decade-count cutoff. The old code silently left
+        // BOTH coefficients unscaled whenever diff exceeded the cutoff, then still
+        // combined them as if they shared an exponent — producing a wrong result,
+        // not just a crash (F-003). Once alignment isn't feasible in the working
+        // type, the far smaller operand cannot affect the correctly-rounded result.
         if pExp < zExp {
             let diff = zExp - pExp
-            if diff.rawValue <= 70 {
-                for _ in 0..<diff.rawValue {
-                    zCoeff *= 10
-                }
-                zExp = pExp
+            var scaled = zCoeff
+            var shifted = 0
+            while shifted < diff.rawValue {
+                let (next, overflow) = scaled.multipliedReportingOverflow(by: 10)
+                if overflow { break }
+                scaled = next
+                shifted += 1
             }
+            if shifted < diff.rawValue {
+                // z dominates the product beyond what the working type can align.
+                return Decimal.Outcome(value: z, status: .inexact)
+            }
+            zCoeff = scaled
+            zExp = pExp
         } else if zExp < pExp {
             let diff = pExp - zExp
-            if diff.rawValue <= 70 {
-                for _ in 0..<diff.rawValue {
-                    pCoeff *= 10
-                }
-                pExp = zExp
+            var scaled = pCoeff
+            var shifted = 0
+            while shifted < diff.rawValue {
+                let (next, overflow) = scaled.multipliedReportingOverflow(by: 10)
+                if overflow { break }
+                scaled = next
+                shifted += 1
             }
+            if shifted < diff.rawValue {
+                // The product dominates z beyond what the working type can align;
+                // round the (still full-precision, unrounded) product alone.
+                let (finalCoeff, finalExp, status) = Decimals.Rounding.round(
+                    coefficient: productCoeff,
+                    exponent: productExp,
+                    sign: productSign,
+                    rounding: context.rounding,
+                    precision: context.precision
+                )
+                if finalExp > context.maxExponent {
+                    return Decimal.Outcome(value: .infinity(sign: productSign), status: status.union(Decimal.Status.overflow).union(.inexact))
+                }
+                return Decimal.Outcome(value: Value.encode(sign: productSign, exponent: finalExp, coefficient: finalCoeff), status: status.union(.inexact))
+            }
+            pCoeff = scaled
+            pExp = zExp
         }
 
         // Add/subtract based on signs
@@ -243,23 +276,56 @@ extension Decimal.Operation where Value == Decimal.Format32 {
         var zCoeff = UInt64(z.extractCoefficient())
         var zExp = z.extractExponent()
 
-        // Align exponents
+        // Align exponents by scaling the operand with the larger exponent up by
+        // 10^diff, stopping the instant a multiplication would overflow rather
+        // than trusting a fixed decade-count cutoff. The old code silently left
+        // BOTH coefficients unscaled whenever diff exceeded the cutoff, then still
+        // combined them as if they shared an exponent — producing a wrong result,
+        // not just a crash (F-003). Once alignment isn't feasible in the working
+        // type, the far smaller operand cannot affect the correctly-rounded result.
         if productExp < zExp {
             let diff = zExp - productExp
-            if diff.rawValue <= 20 {
-                for _ in 0..<diff.rawValue {
-                    zCoeff *= 10
-                }
-                zExp = productExp
+            var scaled = zCoeff
+            var shifted = 0
+            while shifted < diff.rawValue {
+                let (next, overflow) = scaled.multipliedReportingOverflow(by: 10)
+                if overflow { break }
+                scaled = next
+                shifted += 1
             }
+            if shifted < diff.rawValue {
+                // z dominates the product beyond what the working type can align.
+                return Decimal.Outcome(value: z, status: .inexact)
+            }
+            zCoeff = scaled
+            zExp = productExp
         } else if zExp < productExp {
             let diff = productExp - zExp
-            if diff.rawValue <= 20 {
-                for _ in 0..<diff.rawValue {
-                    productCoeff *= 10
-                }
-                productExp = zExp
+            var scaled = productCoeff
+            var shifted = 0
+            while shifted < diff.rawValue {
+                let (next, overflow) = scaled.multipliedReportingOverflow(by: 10)
+                if overflow { break }
+                scaled = next
+                shifted += 1
             }
+            if shifted < diff.rawValue {
+                // The product dominates z beyond what the working type can align;
+                // round the (still full-precision, unrounded) product alone.
+                let (finalCoeff, finalExp, status) = Decimals.Rounding.round(
+                    coefficient: productCoeff,
+                    exponent: productExp,
+                    sign: productSign,
+                    rounding: context.rounding,
+                    precision: context.precision
+                )
+                if finalExp > context.maxExponent {
+                    return Decimal.Outcome(value: .infinity(sign: productSign), status: status.union(Decimal.Status.overflow).union(.inexact))
+                }
+                return Decimal.Outcome(value: Value.encode(sign: productSign, exponent: finalExp, coefficient: finalCoeff), status: status.union(.inexact))
+            }
+            productCoeff = scaled
+            productExp = zExp
         }
 
         let resultSign: Decimal.Sign
@@ -396,23 +462,56 @@ extension Decimal.Operation where Value == Decimal.Format128 {
         var zCoeff = z.extractCoefficient()
         var zExp = z.extractExponent()
 
-        // Align exponents
+        // Align exponents by scaling the operand with the larger exponent up by
+        // 10^diff, stopping the instant a multiplication would overflow rather
+        // than trusting a fixed decade-count cutoff. The old code silently left
+        // BOTH coefficients unscaled whenever diff exceeded the cutoff, then still
+        // combined them as if they shared an exponent — producing a wrong result,
+        // not just a crash (F-003). Once alignment isn't feasible in the working
+        // type, the far smaller operand cannot affect the correctly-rounded result.
         if productExp < zExp {
             let diff = zExp - productExp
-            if diff.rawValue <= 70 {
-                for _ in 0..<diff.rawValue {
-                    zCoeff *= 10
-                }
-                zExp = productExp
+            var scaled = zCoeff
+            var shifted = 0
+            while shifted < diff.rawValue {
+                let (next, overflow) = scaled.multipliedReportingOverflow(by: 10)
+                if overflow { break }
+                scaled = next
+                shifted += 1
             }
+            if shifted < diff.rawValue {
+                // z dominates the product beyond what the working type can align.
+                return Decimal.Outcome(value: z, status: .inexact)
+            }
+            zCoeff = scaled
+            zExp = productExp
         } else if zExp < productExp {
             let diff = productExp - zExp
-            if diff.rawValue <= 70 {
-                for _ in 0..<diff.rawValue {
-                    productCoeff *= 10
-                }
-                productExp = zExp
+            var scaled = productCoeff
+            var shifted = 0
+            while shifted < diff.rawValue {
+                let (next, overflow) = scaled.multipliedReportingOverflow(by: 10)
+                if overflow { break }
+                scaled = next
+                shifted += 1
             }
+            if shifted < diff.rawValue {
+                // The product dominates z beyond what the working type can align;
+                // round the (still full-precision, unrounded) product alone.
+                let (finalCoeff, finalExp, status) = Decimals.Rounding.round128(
+                    coefficient: productCoeff,
+                    exponent: productExp,
+                    sign: productSign,
+                    rounding: context.rounding,
+                    precision: context.precision
+                )
+                if finalExp > context.maxExponent {
+                    return Decimal.Outcome(value: .infinity(sign: productSign), status: status.union(Decimal.Status.overflow).union(.inexact))
+                }
+                return Decimal.Outcome(value: Value.encode(sign: productSign, exponent: finalExp, coefficient: finalCoeff), status: status.union(.inexact))
+            }
+            productCoeff = scaled
+            productExp = zExp
         }
 
         let resultSign: Decimal.Sign
