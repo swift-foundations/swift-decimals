@@ -357,7 +357,8 @@ extension Decimal.Format64.Test {
             let z = Decimal.Format64.encode(sign: .negative, exponent: Decimal.Exponent(0), coefficient: 6)
             let result = x.operation.fuse(y, z)
             let expected = Decimal.Format64.encode(
-                sign: .positive, exponent: Decimal.Exponent(1),
+                sign: .positive,
+                exponent: Decimal.Exponent(1),
                 coefficient: 9_999_999_999_999_999
             )
             #expect(result.value != x)
