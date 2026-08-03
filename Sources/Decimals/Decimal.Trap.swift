@@ -1,6 +1,6 @@
 extension Decimal {
     /// IEEE trap carrying the flag, accumulated status, AND the computed value
-    public struct Trap<Value>: Error, Hashable where Value: Hashable {
+    public struct Trap<Value>: Swift.Error, Hashable where Value: Hashable {
         /// The flag that triggered the trap
         public let flag: Flag
 

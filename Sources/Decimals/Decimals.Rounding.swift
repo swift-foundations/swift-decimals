@@ -106,20 +106,26 @@ extension Decimals.Rounding {
         switch rounding {
         case .ceiling:
             roundUp = remainderPositive && sign == .positive
+
         case .floor:
             roundUp = remainderPositive && sign == .negative
+
         case .down:
             roundUp = false
+
         case .up:
             roundUp = remainderPositive
+
         case .even:
             if isAboveHalf {
                 roundUp = true
             } else if isExactHalf {
                 roundUp = (quotient % 2) != 0
             }
+
         case .away:
             roundUp = isAboveHalf || isExactHalf
+
         case .toward:
             roundUp = isAboveHalf
         }
@@ -203,20 +209,26 @@ extension Decimals.Rounding {
         switch rounding {
         case .ceiling:
             roundUp = remainderPositive && sign == .positive
+
         case .floor:
             roundUp = remainderPositive && sign == .negative
+
         case .down:
             roundUp = false
+
         case .up:
             roundUp = remainderPositive
+
         case .even:
             if isAboveHalf {
                 roundUp = true
             } else if isExactHalf {
                 roundUp = (quotient % 2) != 0
             }
+
         case .away:
             roundUp = isAboveHalf || isExactHalf
+
         case .toward:
             roundUp = isAboveHalf
         }
@@ -300,20 +312,26 @@ extension Decimals.Rounding {
         switch rounding {
         case .ceiling:
             roundUp = remainderPositive && sign == .positive
+
         case .floor:
             roundUp = remainderPositive && sign == .negative
+
         case .down:
             roundUp = false
+
         case .up:
             roundUp = remainderPositive
+
         case .even:
             if isAboveHalf {
                 roundUp = true
             } else if isExactHalf {
                 roundUp = (quotient % 2) != 0
             }
+
         case .away:
             roundUp = isAboveHalf || isExactHalf
+
         case .toward:
             roundUp = isAboveHalf
         }

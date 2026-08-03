@@ -110,7 +110,7 @@ extension Decimal.Text where Value == Decimal.Format64 {
             if numDigits > 1 {
                 buffer[offset] = UInt8(ascii: ".")
                 offset += 1
-                for i in 1..<numDigits {
+                (1..<numDigits).forEach { i in
                     buffer[offset] = digits[i]
                     offset += 1
                 }
@@ -125,7 +125,7 @@ extension Decimal.Text where Value == Decimal.Format64 {
             let shift = adjustedExponent - engExp
             let intDigits = shift + 1
 
-            for i in 0..<intDigits {
+            (0..<intDigits).forEach { i in
                 if i < numDigits {
                     buffer[offset] = digits[i]
                 } else {
@@ -136,7 +136,7 @@ extension Decimal.Text where Value == Decimal.Format64 {
             if intDigits < numDigits {
                 buffer[offset] = UInt8(ascii: ".")
                 offset += 1
-                for i in intDigits..<numDigits {
+                (intDigits..<numDigits).forEach { i in
                     buffer[offset] = digits[i]
                     offset += 1
                 }
@@ -232,9 +232,11 @@ extension Decimal.Text where Value == Decimal.Format64 {
         case .plain:
             // sign + "0." lead-in + digits + decimal point + zero run
             return 1 + 2 + numDigits + 1 + zeroRun
+
         case .scientific:
             // sign + first digit + decimal point + remaining digits + "E" + exponent sign + exponent digits
             return 1 + 1 + 1 + numDigits + 1 + 1 + exponentDigits
+
         case .engineering:
             // sign + up to 3 padded integer digits + decimal point + remaining digits + "E" + exponent sign + exponent digits
             return 1 + 3 + 1 + numDigits + 1 + 1 + exponentDigits
@@ -359,7 +361,7 @@ extension Decimal.Text where Value == Decimal.Format32 {
             if numDigits > 1 {
                 buffer[offset] = UInt8(ascii: ".")
                 offset += 1
-                for i in 1..<numDigits {
+                (1..<numDigits).forEach { i in
                     buffer[offset] = digits[i]
                     offset += 1
                 }
@@ -373,7 +375,7 @@ extension Decimal.Text where Value == Decimal.Format32 {
             let shift = adjustedExponent - engExp
             let intDigits = shift + 1
 
-            for i in 0..<intDigits {
+            (0..<intDigits).forEach { i in
                 if i < numDigits {
                     buffer[offset] = digits[i]
                 } else {
@@ -384,7 +386,7 @@ extension Decimal.Text where Value == Decimal.Format32 {
             if intDigits < numDigits {
                 buffer[offset] = UInt8(ascii: ".")
                 offset += 1
-                for i in intDigits..<numDigits {
+                (intDigits..<numDigits).forEach { i in
                     buffer[offset] = digits[i]
                     offset += 1
                 }
@@ -476,8 +478,10 @@ extension Decimal.Text where Value == Decimal.Format32 {
         switch style {
         case .plain:
             return 1 + 2 + numDigits + 1 + zeroRun
+
         case .scientific:
             return 1 + 1 + 1 + numDigits + 1 + 1 + exponentDigits
+
         case .engineering:
             return 1 + 3 + 1 + numDigits + 1 + 1 + exponentDigits
         }
@@ -601,7 +605,7 @@ extension Decimal.Text where Value == Decimal.Format128 {
             if numDigits > 1 {
                 buffer[offset] = UInt8(ascii: ".")
                 offset += 1
-                for i in 1..<numDigits {
+                (1..<numDigits).forEach { i in
                     buffer[offset] = digits[i]
                     offset += 1
                 }
@@ -615,7 +619,7 @@ extension Decimal.Text where Value == Decimal.Format128 {
             let shift = adjustedExponent - engExp
             let intDigits = shift + 1
 
-            for i in 0..<intDigits {
+            (0..<intDigits).forEach { i in
                 if i < numDigits {
                     buffer[offset] = digits[i]
                 } else {
@@ -626,7 +630,7 @@ extension Decimal.Text where Value == Decimal.Format128 {
             if intDigits < numDigits {
                 buffer[offset] = UInt8(ascii: ".")
                 offset += 1
-                for i in intDigits..<numDigits {
+                (intDigits..<numDigits).forEach { i in
                     buffer[offset] = digits[i]
                     offset += 1
                 }
@@ -718,8 +722,10 @@ extension Decimal.Text where Value == Decimal.Format128 {
         switch style {
         case .plain:
             return 1 + 2 + numDigits + 1 + zeroRun
+
         case .scientific:
             return 1 + 1 + 1 + numDigits + 1 + 1 + exponentDigits
+
         case .engineering:
             return 1 + 3 + 1 + numDigits + 1 + 1 + exponentDigits
         }
