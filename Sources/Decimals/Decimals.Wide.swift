@@ -17,11 +17,6 @@ extension Decimals {
 
         /// The low 128 bits.
         var low: UInt128
-
-        init(high: UInt128, low: UInt128) {
-            self.high = high
-            self.low = low
-        }
     }
 }
 

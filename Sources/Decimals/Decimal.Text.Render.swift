@@ -232,9 +232,11 @@ extension Decimal.Text where Value == Decimal.Format64 {
         case .plain:
             // sign + "0." lead-in + digits + decimal point + zero run
             return 1 + 2 + numDigits + 1 + zeroRun
+
         case .scientific:
             // sign + first digit + decimal point + remaining digits + "E" + exponent sign + exponent digits
             return 1 + 1 + 1 + numDigits + 1 + 1 + exponentDigits
+
         case .engineering:
             // sign + up to 3 padded integer digits + decimal point + remaining digits + "E" + exponent sign + exponent digits
             return 1 + 3 + 1 + numDigits + 1 + 1 + exponentDigits
@@ -476,8 +478,10 @@ extension Decimal.Text where Value == Decimal.Format32 {
         switch style {
         case .plain:
             return 1 + 2 + numDigits + 1 + zeroRun
+
         case .scientific:
             return 1 + 1 + 1 + numDigits + 1 + 1 + exponentDigits
+
         case .engineering:
             return 1 + 3 + 1 + numDigits + 1 + 1 + exponentDigits
         }
@@ -718,8 +722,10 @@ extension Decimal.Text where Value == Decimal.Format128 {
         switch style {
         case .plain:
             return 1 + 2 + numDigits + 1 + zeroRun
+
         case .scientific:
             return 1 + 1 + 1 + numDigits + 1 + 1 + exponentDigits
+
         case .engineering:
             return 1 + 3 + 1 + numDigits + 1 + 1 + exponentDigits
         }
